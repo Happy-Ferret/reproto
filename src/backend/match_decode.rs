@@ -22,12 +22,14 @@ pub trait MatchDecode
                    -> Self::Elements;
 
     fn match_type(&self,
+                  type_id: &RpTypeId,
                   data: &<Self as Decode>::Stmt,
                   kind: &RpMatchKind,
                   variable: &str,
                   decode: <Self as Decode>::Stmt,
-                  result: <Self as Decode>::Stmt)
-                  -> Self::Elements;
+                  result: <Self as Decode>::Stmt,
+                  value: &RpByTypeValue)
+                  -> Result<Self::Elements>;
 
     fn decode_by_value(&self,
                        type_id: &RpTypeId,
@@ -82,14 +84,14 @@ pub trait MatchDecode
 
             let decode = self.decode(type_id, &result.1.pos, &result.0.ty, data)?;
 
-            let result = self.value(&ValueBuilderEnv {
+            let result_value = self.value(&ValueBuilderEnv {
                     value: &result.1,
                     package: &type_id.package,
                     ty: Some(&RpType::Name(type_id.name.clone())),
                     variables: &variables,
                 })?;
 
-            elements.push(&self.match_type(data, kind, variable, decode, result));
+            elements.push(&self.match_type(type_id, data, kind, variable, decode, result_value, result)?);
         }
 
         Ok(Some(elements))

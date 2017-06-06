@@ -983,12 +983,14 @@ impl MatchDecode for Processor {
     }
 
     fn match_type(&self,
+                  _type_id: &RpTypeId,
                   data: &Statement,
                   kind: &RpMatchKind,
                   variable: &str,
                   decode: Statement,
-                  result: Statement)
-                  -> Elements {
+                  result: Statement,
+                  _value: &RpByTypeValue)
+                  -> Result<Elements> {
         let check = match *kind {
             RpMatchKind::Any => stmt!["true"],
             RpMatchKind::Object => stmt![&self.isinstance, "(", data, ", ", &self.dict, ")"],
@@ -1004,6 +1006,6 @@ impl MatchDecode for Processor {
         value_body.push_nested(stmt![&variable, " = ", decode]);
         value_body.push_nested(stmt!["return ", &result]);
 
-        value_body
+        Ok(value_body)
     }
 }
