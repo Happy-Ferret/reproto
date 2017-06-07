@@ -1,4 +1,5 @@
 use core::*;
+use num_bigint;
 use super::parser;
 
 error_chain! {
@@ -6,6 +7,7 @@ error_chain! {
         Io(::std::io::Error);
         ParseInt(::std::num::ParseIntError);
         ParseFloat(::std::num::ParseFloatError);
+        ParseBigInt(::num_bigint::ParseBigIntError);
         FromUtf8Error(::std::string::FromUtf8Error);
     }
 

@@ -1,5 +1,6 @@
 #![allow(unconditional_recursion)]
 
+use num_bigint::BigInt;
 use pest::prelude::*;
 use super::ast::*;
 use super::errors::*;
@@ -242,7 +243,10 @@ impl_rdp! {
         hex     =  _{ ['0'..'9'] | ['a'..'f'] }
 
         unsigned = @{ int }
-        number   = @{ ["-"]? ~ int ~ (["."] ~ ['0'..'9']+)? ~ (["e"] ~ int)? }
+        number = @{ whole ~ (["."] ~  fraction)? ~ (["e"] ~ exponent)? }
+        whole = { ["-"]? ~ int }
+        fraction = { ['0'..'9']+ }
+        exponent = { int }
         int      =  _{ ["0"] | ['1'..'9'] ~ ['0'..'9']* }
 
         boolean = { ["true"] | ["false"] }
@@ -447,9 +451,19 @@ impl_rdp! {
                 Ok(Value::Identifier(value.to_owned()))
             },
 
-            (&value: number) => {
-                let value = value.parse::<f64>()?;
-                Ok(Value::Number(value))
+            (
+                _: number,
+                &whole: whole,
+                fraction: process_fraction(),
+                exponent: process_exponent(),
+            ) => {
+                let whole = whole.parse::<BigInt>()?;
+                let fraction = fraction?;
+                let exponent = exponent?;
+
+                Ok(Value::Number(RpNumber {
+                    whole: whole, fraction: fraction, exponent: exponent
+                }))
             },
 
             (&value: boolean) => {
@@ -461,6 +475,22 @@ impl_rdp! {
 
                 Ok(Value::Boolean(value))
             },
+        }
+
+        process_fraction(&self) -> Result<Option<BigInt>> {
+            (&fraction: fraction) => {
+                Ok(Some(fraction.parse::<BigInt>()?))
+            },
+
+            () => Ok(None),
+        }
+
+        process_exponent(&self) -> Result<Option<u32>> {
+            (&exponent: exponent) => {
+                Ok(Some(exponent.parse::<u32>()?))
+            },
+
+            () => Ok(None),
         }
 
         process_used_prefix(&self) -> Option<String> {

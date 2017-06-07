@@ -629,23 +629,23 @@ impl<'a> ValueBuilder for FasterXmlMatchDecode<'a> {
         self.processor.instance(ty, arguments)
     }
 
-    fn number(&self, number: &f64) -> Result<Self::Stmt> {
+    fn number(&self, number: &RpNumber) -> Result<Self::Stmt> {
         self.processor.number(number)
     }
 
-    fn signed(&self, number: &f64, size: &Option<usize>) -> Result<Self::Stmt> {
+    fn signed(&self, number: &RpNumber, size: &Option<usize>) -> Result<Self::Stmt> {
         self.processor.signed(number, size)
     }
 
-    fn unsigned(&self, number: &f64, size: &Option<usize>) -> Result<Self::Stmt> {
+    fn unsigned(&self, number: &RpNumber, size: &Option<usize>) -> Result<Self::Stmt> {
         self.processor.unsigned(number, size)
     }
 
-    fn float(&self, number: &f64) -> Result<Self::Stmt> {
+    fn float(&self, number: &RpNumber) -> Result<Self::Stmt> {
         self.processor.float(number)
     }
 
-    fn double(&self, number: &f64) -> Result<Self::Stmt> {
+    fn double(&self, number: &RpNumber) -> Result<Self::Stmt> {
         self.processor.double(number)
     }
 

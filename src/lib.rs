@@ -2,6 +2,7 @@
 
 extern crate clap;
 extern crate linked_hash_map;
+extern crate num_bigint;
 
 #[macro_use]
 extern crate pest;
