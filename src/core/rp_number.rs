@@ -1,4 +1,3 @@
-use errors::
 use num_bigint::BigInt;
 use std::fmt;
 
@@ -7,10 +6,6 @@ pub struct RpNumber {
     whole: BigInt,
     fraction: Option<BigInt>,
     exponent: Option<u32>,
-}
-
-impl RpNumber {
-    pub fn as_u32(&self) -> Result<
 }
 
 impl fmt::Display for RpNumber {
