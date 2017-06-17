@@ -22109,7 +22109,7 @@ pub fn __action18<
     let comment = name.comment.clone();
 
     EnumVariant {
-        name: name.map_inner(|n| n.value),
+        name: name.map_into(|n| n.value),
         comment: comment,
         arguments: arguments.map(|a| a.1).unwrap_or_else(|| vec![]),
         ordinal: ordinal.map(|o| o.1),
