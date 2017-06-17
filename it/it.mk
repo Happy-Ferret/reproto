@@ -69,3 +69,7 @@ java:
 	@${tool} compile -b java ${java_args} -o ${JAVA_OUT} --path ${PROTO_PATH} --package ${TARGET}
 
 project-java:
+	rsync -rav ../$@/ $@-workdir
+	${tool} compile -b java -m fasterxml -o $@-workdir/target/generated-sources/reproto --path ${PROTO_PATH} --package ${TARGET}
+	@cd $@-workdir && make
+	@${script_input} $@-workdir/script.sh

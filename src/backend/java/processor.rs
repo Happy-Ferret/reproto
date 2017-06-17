@@ -715,8 +715,7 @@ impl Processor {
 
             let mods = mods![Modifier::Public, Modifier::Static];
             let mut class = ClassSpec::new(mods, &sub_type.name);
-            let mut fields = interface_fields.clone();
-            fields.extend(self.convert_fields(&type_id.package, &sub_type.fields)?);
+            let sub_type_fields = self.convert_fields(&type_id.package, &sub_type.fields)?;
 
             for code in sub_type.codes.for_context(JAVA_CONTEXT) {
                 class.push(code.inner.lines);
@@ -725,20 +724,22 @@ impl Processor {
             class.implements(&parent_type);
 
             // override methods for interface fields.
-            if self.options.build_getters {
-                for field in &interface_fields {
+            for field in &interface_fields {
+                if self.options.build_getters {
                     let mut getter = field.getter()?;
                     getter.push_annotation(&self.override_);
                     class.push(getter);
                 }
+
+                if self.options.build_setters {
+                    if let Some(mut setter) = field.setter()? {
+                        setter.push_annotation(&self.override_);
+                        class.push(setter);
+                    }
+                }
             }
 
-            let mut fields = interface_fields.clone();
-            fields.extend(self.convert_fields(&type_id.package, &sub_type.inner.fields)?);
-
-            for field in &fields {
-                class.push_field(&field.java_spec);
-
+            for field in &sub_type_fields {
                 if self.options.build_getters {
                     class.push(field.getter()?);
                 }
@@ -748,6 +749,13 @@ impl Processor {
                         class.push(setter);
                     }
                 }
+            }
+
+            let mut fields = interface_fields.clone();
+            fields.extend(sub_type_fields);
+
+            for field in &fields {
+                class.push_field(&field.java_spec);
             }
 
             self.add_class(&class_type, &mut class)?;
