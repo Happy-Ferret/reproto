@@ -434,6 +434,10 @@ pub struct RpPathSpec {
 }
 
 impl RpPathSpec {
+    pub fn new(segments: Vec<RpPathSegment>) -> RpPathSpec {
+        RpPathSpec { segments: segments }
+    }
+
     pub fn url(&self) -> String {
         let segments: Vec<String> = self.segments.iter().map(RpPathSegment::path).collect();
         format!("/{}", segments.join("/"))
@@ -552,14 +556,6 @@ impl RpRegistered {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct RpServiceAccepts {
-    pub comment: Vec<String>,
-    pub ty: Option<Loc<RpType>>,
-    pub accepts: Option<Mime>,
-    pub alias: Option<Loc<String>>,
-}
-
-#[derive(Debug, Clone, Serialize)]
 pub struct RpServiceBody {
     pub name: RpName,
     pub local_name: String,
@@ -569,10 +565,26 @@ pub struct RpServiceBody {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct RpServiceEndpoint {
-    pub method: Option<Loc<String>>,
-    pub path: RpPathSpec,
+pub struct RpServiceAccepts {
     pub comment: Vec<String>,
+    pub ty: Loc<RpType>,
+    pub mime: Option<Mime>,
+    pub name: Loc<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RpServiceReturns {
+    pub comment: Vec<String>,
+    pub status: u32,
+    pub ty: Loc<RpType>,
+    pub mime: Option<Mime>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RpServiceEndpoint {
+    pub comment: Vec<String>,
+    pub method: Loc<String>,
+    pub path: RpPathSpec,
     pub accepts: Vec<RpServiceAccepts>,
     pub returns: Vec<RpServiceReturns>,
 }
@@ -587,26 +599,14 @@ impl RpServiceEndpoint {
         F: Fn(&str) -> String,
     {
         let mut parts = Vec::new();
-
-        if let Some(ref method) = self.method {
-            parts.push(filter(method.value().as_str()));
-        }
-
+        parts.push(filter(self.method.value().as_str()));
         parts.extend(self.path.id_fragments().into_iter().map(filter));
         parts
     }
 
-    pub fn method(&self) -> Option<&str> {
-        self.method.as_ref().map(|v| v.value().as_str())
+    pub fn method(&self) -> &str {
+        self.method.value()
     }
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RpServiceReturns {
-    pub comment: Vec<String>,
-    pub ty: Option<Loc<RpType>>,
-    pub produces: Option<Mime>,
-    pub status: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]

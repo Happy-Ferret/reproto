@@ -163,6 +163,11 @@ pub trait Output {
                 self.print_error("previous name here", other)?;
                 true
             }
+            EndpointConflict(ref message, ref pos, ref other) => {
+                self.print_error(message.as_str(), pos)?;
+                self.print_error("previous declaration here", other)?;
+                true
+            }
             _ => false,
         };
 

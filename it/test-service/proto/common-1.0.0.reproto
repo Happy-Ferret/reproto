@@ -2,8 +2,10 @@ type Entry {
   name: string;
 }
 
-/// # Error me
+/// Common error message returned.
 type ErrorMessage {
-  message: string;
+  /// Message of the error.
+  message: string as "message message";
+  /// Status code returned with the error.
   status_code: unsigned;
 }

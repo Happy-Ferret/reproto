@@ -162,36 +162,50 @@ pub struct ServiceBody<'input> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct ServiceAccepts<'input> {
+    pub comment: Vec<&'input str>,
+    pub ty: Loc<Type>,
+    pub mime: Option<Loc<String>>,
+    pub name: Option<Loc<&'input str>>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ServiceReturns<'input> {
+    pub comment: Vec<&'input str>,
+    pub status: Loc<RpNumber>,
+    pub ty: Loc<Type>,
+    pub mime: Option<Loc<String>>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ServiceEntry<'input> {
+    Accepts(ServiceAccepts<'input>),
+    Returns(ServiceReturns<'input>),
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum ServiceNested<'input> {
-    Endpoint {
-        method: Option<Loc<&'input str>>,
-        path: Option<Loc<PathSpec<'input>>>,
-        comment: Vec<&'input str>,
-        options: Vec<Loc<OptionDecl<'input>>>,
+    Segment {
+        path: Loc<PathSpec<'input>>,
         children: Vec<ServiceNested<'input>>,
     },
-    Returns {
+    Endpoint {
         comment: Vec<&'input str>,
-        status: Option<Loc<RpNumber>>,
-        produces: Option<Loc<String>>,
-        ty: Option<Loc<Type>>,
+        method: Loc<&'input str>,
+        path: Option<Loc<PathSpec<'input>>>,
+        default_name: Option<Loc<&'input str>>,
         options: Vec<Loc<OptionDecl<'input>>>,
-    },
-    Accepts {
-        comment: Vec<&'input str>,
-        accepts: Option<Loc<String>>,
-        alias: Option<Loc<&'input str>>,
-        ty: Option<Loc<Type>>,
-        options: Vec<Loc<OptionDecl<'input>>>,
+        entries: Vec<Loc<ServiceEntry<'input>>>,
     },
 }
 
 impl<'input> ServiceNested<'input> {
     pub fn is_terminus(&self) -> bool {
+        use self::ServiceNested::*;
+
         match *self {
-            ServiceNested::Returns { .. } => true,
-            ServiceNested::Accepts { .. } => true,
-            _ => false,
+            Segment { .. } => false,
+            Endpoint { .. } => true,
         }
     }
 }

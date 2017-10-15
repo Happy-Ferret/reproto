@@ -82,16 +82,7 @@ impl DocBackend {
         package.parts.join("_")
     }
 
-    fn write_markdown(&self, out: &mut DocBuilder, comment: &[String]) -> Result<()> {
-        if !comment.is_empty() {
-            let comment = comment.join("\n");
-            write!(out, "{}", Self::markdown(&comment))?;
-        }
-
-        Ok(())
-    }
-
-    fn write_description<'a, I>(&self, out: &mut DocBuilder, comment: I) -> Result<()>
+    fn write_markdown<'a, I>(&self, out: &mut DocBuilder, comment: I) -> Result<()>
     where
         I: IntoIterator<Item = &'a String>,
     {
@@ -100,8 +91,42 @@ impl DocBackend {
         if it.peek().is_some() {
             let comment = it.map(ToOwned::to_owned).collect::<Vec<_>>();
             let comment = comment.join("\n");
-            html!(out, div { class => "description" } ~ Self::markdown(&comment));
+            html!(out, div { class => "markdown" } ~ Self::markdown(&comment));
         }
+
+        Ok(())
+    }
+
+    fn write_docs<'a, I>(&self, out: &mut DocBuilder, comment: I) -> Result<()>
+    where
+        I: IntoIterator<Item = &'a String>,
+    {
+        let mut it = comment.into_iter().peekable();
+
+        if it.peek().is_none() {
+            return Ok(());
+        }
+
+        html!(out, div {class => "docs"} => {
+            self.write_markdown(out, it)?;
+        });
+
+        Ok(())
+    }
+
+    fn write_short_docs<'a, I>(&self, out: &mut DocBuilder, comment: I) -> Result<()>
+    where
+        I: IntoIterator<Item = &'a String>,
+    {
+        let mut it = comment.into_iter().peekable();
+
+        if it.peek().is_none() {
+            return Ok(());
+        }
+
+        html!(out, div {class => "short-docs"} => {
+            self.write_markdown(out, it)?;
+        });
 
         Ok(())
     }
@@ -116,27 +141,20 @@ impl DocBackend {
             return Ok(());
         }
 
-        html!(out, div {class => "variants"} => {
-            html!(out, h2 {} ~ "Variants");
+        html!(out, h2 {} ~ "Variants");
 
-            html!(out, table {class => "spaced"} => {
-                for variant in it {
-                    html!(out, tr {} => {
-                        html!(out, td {class => "name"} ~ variant.local_name.as_ref());
-
-                        html!(out, td {class => "description"} => {
-                            self.write_description(out, &variant.comment)?;
-                        });
-                    });
-                }
+        for variant in it {
+            html!(out, div {class => "variant"} => {
+                html!(out, div {class => "name"} ~ variant.local_name.as_ref());
+                self.write_docs(out, &variant.comment)?;
             });
-        });
+        }
 
         Ok(())
     }
 
-    fn write_simple_type(&self, out: &mut DocBuilder, name: &'static str) -> Result<()> {
-        html!(out, span {class => format!("type-{}", name)} => {
+    fn write_primitive_type(&self, out: &mut DocBuilder, name: &'static str) -> Result<()> {
+        html!(out, span {class => format!("primitive type-{}", name)} => {
             html!(out, code {class => "type-name"} ~ name);
         });
 
@@ -146,16 +164,16 @@ impl DocBackend {
     fn write_type(&self, out: &mut DocBuilder, ty: &RpType) -> Result<()> {
         use self::RpType::*;
 
-        write!(out, "<span class=\"ty\">")?;
+        write!(out, "<span class=\"type\">")?;
 
         match *ty {
-            Double => self.write_simple_type(out, "double")?,
-            Float => self.write_simple_type(out, "float")?,
-            Boolean => self.write_simple_type(out, "boolean")?,
-            String => self.write_simple_type(out, "string")?,
-            DateTime => self.write_simple_type(out, "datetime")?,
-            Bytes => self.write_simple_type(out, "bytes")?,
-            Any => self.write_simple_type(out, "any")?,
+            Double => self.write_primitive_type(out, "double")?,
+            Float => self.write_primitive_type(out, "float")?,
+            Boolean => self.write_primitive_type(out, "boolean")?,
+            String => self.write_primitive_type(out, "string")?,
+            DateTime => self.write_primitive_type(out, "datetime")?,
+            Bytes => self.write_primitive_type(out, "bytes")?,
+            Any => self.write_primitive_type(out, "any")?,
             Signed { ref size } => {
                 html!(out, span {class => "type-signed"} => {
                     html!(out, code {class => "type-name"} ~ "signed");
@@ -215,34 +233,27 @@ impl DocBackend {
             classes.push("required");
         }
 
-        html!(out, tr {classes => classes} => {
-            html!(out, td {class => "mime"} => {
-                let ident = field.ident();
-                let name = field.name();
+        html!(out, div {class => "field"} => {
+            let ident = field.ident();
+            let name = field.name();
 
-                html!(out, span {class => "field-ident"} ~ ident);
+            html!(out, span {class => "field-ident"} ~ ident);
 
-                if field.is_optional() {
-                    html!(out, span {class => "field-modifier"} ~ "?");
-                }
+            if field.is_optional() {
+                html!(out, span {class => "field-modifier"} ~ "?");
+            }
 
-                if name != ident {
-                    html!(out, span {class => "field-alias"} => {
-                        html!(out, span {class => "field-alias-as"} ~ "as");
-                        html!(out, code {class => "field-alias-name"} ~ format!("\"{}\"", name));
-                    });
-                }
-            });
+            if name != ident {
+                html!(out, span {class => "field-alias"} => {
+                    html!(out, span {class => "field-alias-as"} ~ "as");
+                    html!(out, code {class => "field-alias-name"} ~ format!("\"{}\"", name));
+                });
+            }
 
-            html!(out, td {class => "type"} => {
-                self.write_type(out, &field.ty)?;
-            });
-
-            html!(out, td {class => "description"} => {
-                self.write_markdown(out, &field.comment)?;
-            });
+            self.write_type(out, &field.ty)?;
         });
 
+        self.write_docs(out, &field.comment)?;
         Ok(())
     }
 
@@ -253,20 +264,18 @@ impl DocBackend {
         html!(out, div {class => "fields"} => {
             html!(out, h2 {} ~ "Fields");
 
-            html!(out, table {class => "spaced"} => {
-                fields.for_each_loc(|field| {
-                    self.write_field(out, field)
-                })?;
-            });
+            fields.for_each_loc(|field| {
+                self.write_field(out, field)
+            })?;
         });
 
         Ok(())
     }
 
     fn section_title(&self, out: &mut DocBuilder, ty: &str, name: &str, id: &str) -> Result<()> {
-        html!(out, h1 {class => "section-title"} => {
-            html!(out, a {class => "link", href => format!("#{}", id)} ~ Escape(name));
+        html!(out, h1 {} => {
             html!(out, span {class => "type"} ~ ty);
+            html!(out, a {class => "link", href => format!("#{}", id)} ~ Escape(name));
         });
 
         Ok(())
@@ -312,20 +321,16 @@ impl DocBackend {
         body: &RpServiceBody,
         endpoint: &RpServiceEndpoint,
     ) -> Result<()> {
-        let method = endpoint.method().unwrap_or("GET").to_owned();
+        let method = endpoint.method().to_owned();
         let id = format!("{}_{}_{}", body.name, endpoint.id_parts(Self::fragment_filter).join("_"), index);
 
         html!(out, div {class => format!("endpoint short {}", method.to_lowercase())} => {
-            html!(out, a {class => "endpoint-title", href => format!("#{}", id)} => {
+            html!(out, a {href => format!("#{}", id)} => {
                 html!(out, span {class => "method"} ~ Escape(method.as_ref()));
                 html!(out, span {class => "url"} ~ Escape(endpoint.url().as_ref()));
             });
 
-            if !endpoint.comment.is_empty() {
-                html!(out, div {class => "endpoint-body"} => {
-                    self.write_description(out, endpoint.comment.iter().take(1))?;
-                });
-            }
+            self.write_short_docs(out, endpoint.comment.iter().take(1))?;
         });
 
         Ok(())
@@ -366,90 +371,65 @@ impl DocBackend {
         body: &RpServiceBody,
         endpoint: &RpServiceEndpoint,
     ) -> Result<()> {
-        let method = endpoint.method().unwrap_or("GET").to_owned();
+        let method = endpoint.method().to_owned();
         let id = format!("{}_{}_{}", body.name, endpoint.id_parts(Self::fragment_filter).join("_"), index);
 
         html!(out, div {class => format!("endpoint {}", method.to_lowercase()), id => id} => {
-            html!(out, h2 {class => "endpoint-title"} => {
+            html!(out, h2 {} => {
                 html!(out, span {class => "method"} ~ Escape(method.as_ref()));
 
                 html!(out, a {class => "url", href => format!("#{}", id)}
                     ~ Escape(endpoint.url().as_ref()));
             });
 
-            html!(out, div {class => "endpoint-body"} => {
-                self.write_description(out, &endpoint.comment)?;
+            self.write_docs(out, &endpoint.comment)?;
 
-                if !endpoint.accepts.is_empty() {
-                    html!(out, h2 {} ~ "Accepts");
+            if !endpoint.accepts.is_empty() {
+                for accept in &endpoint.accepts {
+                    html!(out, div {class => "name"} => {
+                        let mime = accept.mime
+                            .as_ref()
+                            .map(|m| format!("{}", m))
+                            .unwrap_or("*/*".to_owned());
 
-                    html!(out, table {class => "spaced"} => {
-                        for accept in &endpoint.accepts {
-                            html!(out, tr {} => {
-                                let accepts = accept.accepts
-                                    .as_ref()
-                                    .map(|m| format!("{}", m))
-                                    .unwrap_or("*/*".to_owned());
+                        html!(out, span {class => "type"} ~ "Accepts");
+                        html!(out, span {class => "name"} ~ accept.name.as_str());
+                        html!(out, span {class => "mime"} => {
+                            html!(out, code {} ~ Escape(mime.as_ref()));
+                        });
 
-                                html!(out, td {class => "mime"} => {
-                                    html!(out, code {} ~ Escape(accepts.as_ref()))
-                                });
-
-                                html!(out, td {class => "type"} => {
-                                    if let Some(ref ty) = accept.ty {
-                                        let (ty, pos) = ty.as_ref_pair();
-                                        self.write_type(out, ty).with_pos(pos)?;
-                                    } else {
-                                        html!(out, em {} ~ "no body");
-                                    }
-                                });
-
-                                html!(out, td {class => "description"} => {
-                                    self.write_markdown(out, &accept.comment)?;
-                                });
-                            });
-                        }
+                        let (ty, pos) = accept.ty.as_ref_pair();
+                        self.write_type(out, ty).with_pos(pos)?;
                     });
+
+                    self.write_docs(out, &accept.comment)?;
                 }
 
-                if !endpoint.returns.is_empty() {
-                    html!(out, h2 {} ~ "Returns");
+            }
 
-                    html!(out, table {class => "spaced"} => {
-                        for response in &endpoint.returns {
-                            html!(out, tr {} => {
-                                let status = response.status
-                                    .as_ref()
-                                    .map(|status| format!("{}", status))
-                                    .unwrap_or("<em>no status</em>".to_owned());
+            if !endpoint.returns.is_empty() {
+                for returns in &endpoint.returns {
+                    html!(out, div {class => "name"} => {
+                        let status = returns.status.to_string();
 
-                                let produces = response.produces
-                                    .as_ref()
-                                    .map(|m| format!("{}", m))
-                                    .unwrap_or("*/*".to_owned());
+                        let mime = returns.mime
+                            .as_ref()
+                            .map(|m| format!("{}", m))
+                            .unwrap_or("*/*".to_owned());
 
-                                html!(out, td {class => "status"} ~ status);
-                                html!(out, td {class => "mime"} => {
-                                    html!(out, code {} ~ Escape(produces.as_ref()))
-                                });
+                        html!(out, span {class => "type"} ~ "Returns");
+                        html!(out, span {class => "status"} ~ status);
+                        html!(out, span {class => "mime"} => {
+                            html!(out, code {} ~ Escape(mime.as_ref()));
+                        });
 
-                                html!(out, td {class => "type"} => {
-                                    if let Some(ref ty) = response.ty {
-                                        let (ty, pos) = ty.as_ref_pair();
-                                        self.write_type(out, ty).with_pos(pos)?;
-                                    } else {
-                                        html!(out, em {} ~ "no body");
-                                    }
-                                });
-
-                                html!(out, td {class => "description"} => {
-                                    self.write_markdown(out, &response.comment)?;
-                                });
-                            });
-                        }
+                        let (ty, pos) = returns.ty.as_ref_pair();
+                        self.write_type(out, ty).with_pos(pos)?;
                     });
+
+                    self.write_docs(out, &returns.comment)?;
                 }
-            });
+            }
         });
 
         Ok(())
@@ -464,29 +444,31 @@ impl DocBackend {
         packages: &[RpVersionedPackage],
         current: Option<&RpVersionedPackage>,
     ) -> Result<()> {
-        html!(out, section {class => "section-content section-packages"} => {
-            html!(out, h1 {class => "section-title"} ~ "Packages");
+        if packages.is_empty() {
+            return Ok(());
+        }
 
-            html!(out, div {class => "section-body"} => {
-                html!(out, ul {class => "packages-list"} => {
-                    for package in packages {
-                        let name = format!("{}", package);
+        html!(out, section {class => "packages"} => {
+            html!(out, h2 {} ~ "Packages");
 
-                        if let Some(current) = current {
-                            if package == current {
-                                html!(out, li {} ~ format!("<b>{}</b>", Escape(name.as_ref())));
-                                continue;
-                            }
+            html!(out, ul {class => "packages-list"} => {
+                for package in packages {
+                    let name = format!("{}", package);
+
+                    if let Some(current) = current {
+                        if package == current {
+                            html!(out, li {} ~ format!("<b>{}</b>", Escape(name.as_ref())));
+                            continue;
                         }
-
-                        let package = self.package(package);
-                        let url = format!("{}.{}", self.package_file(&package), EXT);
-
-                        html!(out, li {} => {
-                            html!(out, a {href => url} ~ Escape(name.as_ref()));
-                        });
                     }
-                });
+
+                    let package = self.package(package);
+                    let url = format!("{}.{}", self.package_file(&package), EXT);
+
+                    html!(out, li {} => {
+                        html!(out, a {href => url} ~ Escape(name.as_ref()));
+                    });
+                }
             });
         });
 
@@ -502,20 +484,16 @@ impl DocBackend {
             return Ok(());
         }
 
-        html!(out, section {class => "section-content section-service-overview"} => {
-            html!(out, h1 {class => "section-title"} ~ "Services");
+        html!(out, section {class => "service-overview"} => {
+            for body in service_bodies {
+                html!(out, h4 {} ~ &body.name);
 
-            html!(out, div {class => "section-body"} => {
-                for body in service_bodies {
-                    html!(out, h2 {} ~ &body.name);
+                self.write_short_docs(out, body.comment.iter().take(1))?;
 
-                    self.write_description(out, body.comment.iter().take(1))?;
-
-                    for (index, endpoint) in body.endpoints.iter().enumerate() {
-                        self.write_endpoint_short(out, index, &body, endpoint)?;
-                    }
+                for (index, endpoint) in body.endpoints.iter().enumerate() {
+                    self.write_endpoint_short(out, index, &body, endpoint)?;
                 }
-            })
+            }
         });
 
         Ok(())
@@ -526,20 +504,18 @@ impl DocBackend {
             return Ok(());
         }
 
-        html!(out, section {class => "section-content section-types-overview"} => {
-            html!(out, h1 {class => "section-title"} ~ "Types");
+        html!(out, section {class => "types-overview"} => {
+            html!(out, h2 {} ~ "Types");
 
-            html!(out, div {class => "section-body"} => {
-                for decl in decls {
-                    let href = format!("#{}", decl.local_name());
+            for decl in decls {
+                let href = format!("#{}", decl.local_name());
 
-                    html!(out, h2 {} => {
-                        html!(out, a {href => href} ~ decl.local_name());
-                    });
+                html!(out, h4 {} => {
+                    html!(out, a {href => href} ~ decl.local_name());
+                });
 
-                    self.write_description(out, decl.comment().iter().take(1))?;
-                }
-            })
+                self.write_short_docs(out, decl.comment().iter().take(1))?;
+            }
         });
 
         Ok(())
@@ -556,16 +532,16 @@ impl DocBackend {
         let title_text = body.name.join("::");
         let id = body.name.join("_");
 
-        html!(out, section {id => &id, class => "section-content section-service"} => {
-            self.section_title(&mut out, "service", &title_text, &id)?;
+        html!(out, section {id => &id, class => "service"} => {
+            self.section_title(&mut out, "Service", &title_text, &id)?;
 
-            html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
-
-                for (index, endpoint) in body.endpoints.iter().enumerate() {
-                    self.write_endpoint(&mut out, index, body, endpoint)?;
-                }
+            html!(out, div {class => "body"} => {
+                self.write_docs(&mut out, &body.comment)?;
             });
+
+            for (index, endpoint) in body.endpoints.iter().enumerate() {
+                self.write_endpoint(&mut out, index, body, endpoint)?;
+            }
         });
 
         Ok(())
@@ -578,11 +554,11 @@ impl DocBackend {
         let title_text = body.name.join("::");
         let id = body.name.join("_");
 
-        html!(out, section {id => &id, class => "section-content section-enum"} => {
-            self.section_title(&mut out, "enum", &title_text, &id)?;
+        html!(out, section {id => &id, class => "enum"} => {
+            self.section_title(&mut out, "Enum", &title_text, &id)?;
 
-            html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
+            html!(out, div {class => "body"} => {
+                self.write_docs(&mut out, &body.comment)?;
                 self.write_variants(&mut out, body.variants.iter())?;
             });
         });
@@ -601,30 +577,28 @@ impl DocBackend {
         let title_text = body.name.join("::");
         let id = body.name.join("_");
 
-        html!(out, section {id => &id, class => "section-content section-interface"} => {
-            self.section_title(&mut out, "interface", &title_text, &id)?;
+        html!(out, section {id => &id, class => "interface"} => {
+            self.section_title(&mut out, "Interface", &title_text, &id)?;
 
-            html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
+            self.write_markdown(&mut out, &body.comment)?;
 
-                if !body.sub_types.is_empty() {
-                    html!(out, div {class => "sub-types"} => {
-                        for sub_type in body.sub_types.values() {
-                            let id = format!("{}_{}", body.name, sub_type.name);
+            if !body.sub_types.is_empty() {
+                html!(out, div {class => "sub-types"} => {
+                    for sub_type in body.sub_types.values() {
+                        let id = format!("{}_{}", body.name, sub_type.name);
 
-                            html!(out, h2 {id => id, class => "sub-type-title"} => {
-                                html!(out, a {class => "link", href => format!("#{}", id)} ~
-                                      sub_type.local_name);
-                            });
+                        html!(out, h2 {id => id, class => "sub-type-title"} => {
+                            html!(out, a {class => "link", href => format!("#{}", id)} ~
+                                    sub_type.local_name);
+                        });
 
-                            self.write_description(&mut out, &body.comment)?;
+                        self.write_markdown(&mut out, &body.comment)?;
 
-                            let fields = body.fields.iter().chain(sub_type.fields.iter());
-                            self.write_fields(&mut out, fields)?;
-                        }
-                    });
-                }
-            });
+                        let fields = body.fields.iter().chain(sub_type.fields.iter());
+                        self.write_fields(&mut out, fields)?;
+                    }
+                });
+            }
         });
 
         Ok(())
@@ -637,13 +611,10 @@ impl DocBackend {
         let title_text = body.name.join("::");
         let id = body.name.join("_");
 
-        html!(out, section {id => &id, class => "section-content section-type"} => {
-            self.section_title(&mut out, "type", &title_text, &id)?;
-
-            html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
-                self.write_fields(&mut out, body.fields.iter())?;
-            });
+        html!(out, section {id => &id, class => "type"} => {
+            self.section_title(&mut out, "Type", &title_text, &id)?;
+            self.write_markdown(&mut out, &body.comment)?;
+            self.write_fields(&mut out, body.fields.iter())?;
         });
 
         Ok(())
@@ -660,13 +631,10 @@ impl DocBackend {
         let id = body.name.join("_");
         let title_text = body.name.join("::");
 
-        html!(out, section {id => &id, class => "section-content section-tuple"} => {
-            self.section_title(&mut out, "tuple", &title_text, &id)?;
-
-            html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
-                self.write_fields(&mut out, body.fields.iter())?;
-            });
+        html!(out, section {id => &id, class => "tuple"} => {
+            self.section_title(&mut out, "Tuple", &title_text, &id)?;
+            self.write_markdown(&mut out, &body.comment)?;
+            self.write_fields(&mut out, body.fields.iter())?;
         });
 
         Ok(())

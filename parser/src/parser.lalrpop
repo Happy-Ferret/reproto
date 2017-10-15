@@ -112,64 +112,58 @@ Service: ServiceBody<'input> =
 };
 
 ServiceNested: ServiceNested<'input> = {
-    <comment:"///"?>
-    <method:Loc<TypeIdentifier>?> <path:Loc<PathSpec>?> "{"
-        <options:Loc<OptionDecl>*>
+    <path:Loc<PathSpec>>
+    "{"
         <children:ServiceNested*>
     "}" => {
-        ServiceNested::Endpoint {
-            method: method,
+        ServiceNested::Segment {
             path: path,
-            comment: comment.unwrap_or_else(Vec::new),
-            options: options,
             children: children,
         }
     },
 
     <comment:"///"?>
-    "returns" <status:Loc<Number>?> <produces:Loc<string>?> <ty:Loc<TypeSpec>?> ";" => {
-        ServiceNested::Returns {
+    <method:Loc<TypeIdentifier>>
+    <path:Loc<PathSpec>?>
+    <default_name:Loc<Alias>?>
+    "{"
+        <options:Loc<OptionDecl>*>
+        <entries:Loc<ServiceEntry>*>
+    "}" => {
+        ServiceNested::Endpoint {
             comment: comment.unwrap_or_else(Vec::new),
-            status: status,
-            produces: produces,
-            ty: ty,
-            options: vec![],
+            method: method,
+            path: path,
+            default_name: default_name,
+            options: options,
+            entries: entries,
         }
     },
+};
+
+ServiceEntry: ServiceEntry<'input> = {
     <comment:"///"?>
-    "returns" <status:Loc<Number>?> <produces:Loc<string>?> <ty:Loc<TypeSpec>?> "{"
-        <options:Loc<OptionDecl>*>
-    "}" => {
-        ServiceNested::Returns {
+    "returns" <status:Loc<Number>> <ty:Loc<TypeSpec>> <mime:Loc<string>?> ";" => {
+        ServiceEntry::Returns(ServiceReturns {
             comment: comment.unwrap_or_else(Vec::new),
             status: status,
-            produces: produces,
             ty: ty,
-            options: options,
-        }
+            mime: mime,
+        })
     },
 
     <comment:"///"?>
-    "accepts" <accepts:Loc<string>?> <ty:Loc<TypeSpec>?> <alias:Loc<Alias>?> ";" => {
-        ServiceNested::Accepts {
+    "accepts"
+    <ty:Loc<TypeSpec>>
+    <mime:Loc<string>?>
+    <name:Loc<Alias>?>
+    ";" => {
+        ServiceEntry::Accepts(ServiceAccepts {
             comment: comment.unwrap_or_else(Vec::new),
-            accepts: accepts,
-            alias: alias,
             ty: ty,
-            options: vec![],
-        }
-    },
-    <comment:"///"?>
-    "accepts" <accepts:Loc<string>?>  <ty:Loc<TypeSpec>?> <alias:Loc<Alias>?> "{"
-        <options:Loc<OptionDecl>*>
-    "}" => {
-        ServiceNested::Accepts {
-            comment: comment.unwrap_or_else(Vec::new),
-            accepts: accepts,
-            alias: alias,
-            ty: ty,
-            options: options,
-        }
+            mime: mime,
+            name: name,
+        })
     },
 };
 

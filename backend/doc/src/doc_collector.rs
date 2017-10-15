@@ -101,13 +101,13 @@ impl<'p> IntoBytes<DocCompiler<'p>> for DocCollector<'p> {
         compiler.backend.write_doc(
             &mut DefaultDocBuilder::new(&mut buffer),
             move |out| {
-                if let Some(package_title) = self.package_title {
-                    html!(out, h1 {class => "document-title"} => {
-                        write!(out, "Package: {}", package_title)?;
-                    });
-                }
-
                 html!(out, div {class => "grid-container"} => {
+                    if let Some(package_title) = self.package_title {
+                        html!(out, h1 {class => "grid-title"} => {
+                            write!(out, "Package: {}", package_title)?;
+                        });
+                    }
+
                     html!(out, div {class => "grid-overview"} => {
                         if let Some(package) = self.packages.iter().nth(0) {
                             out.write_str(package.as_str())?;

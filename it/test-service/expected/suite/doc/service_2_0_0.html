@@ -31,11 +31,11 @@
 <section class="section-content section-service-overview">
   <h1 class="section-title">Services</h1>
   <div class="section-body">
-    <h2>MyService</h2>
+    <h2>MyService::MyService</h2>
     <div class="description"><h1>HUGE Example Service</h1>
 </div>
     <div class="endpoint short get">
-      <a class="endpoint-title" href="#MyService_GET_v2_foo_0">
+      <a class="endpoint-title" href="#MyService::MyService_GET_v2_foo_0">
         <span class="method">GET</span>
         <span class="url">/v2/foo</span>
       </a>
@@ -45,7 +45,7 @@
       </div>
     </div>
     <div class="endpoint short post">
-      <a class="endpoint-title" href="#MyService_POST_v2_foo_1">
+      <a class="endpoint-title" href="#MyService::MyService_POST_v2_foo_1">
         <span class="method">POST</span>
         <span class="url">/v2/foo</span>
       </a>
@@ -55,7 +55,7 @@
       </div>
     </div>
     <div class="endpoint short get">
-      <a class="endpoint-title" href="#MyService_GET_v2_foo_id_2">
+      <a class="endpoint-title" href="#MyService::MyService_GET_v2_foo_id_2">
         <span class="method">GET</span>
         <span class="url">/v2/foo/{id}</span>
       </a>
@@ -65,12 +65,22 @@
       </div>
     </div>
     <div class="endpoint short delete">
-      <a class="endpoint-title" href="#MyService_DELETE_v2_foo_id_3">
+      <a class="endpoint-title" href="#MyService::MyService_DELETE_v2_foo_id_3">
         <span class="method">DELETE</span>
         <span class="url">/v2/foo/{id}</span>
       </a>
       <div class="endpoint-body">
-        <div class="description"><h4>Delete the entity with the given id <code>{id}</code></h4>
+        <div class="description"><h1>Delete the foo with the given ID.</h1>
+</div>
+      </div>
+    </div>
+    <div class="endpoint short delete">
+      <a class="endpoint-title" href="#MyService::MyService_DELETE_v2_foo_%C3%A5berg%20%3C%3E_4">
+        <span class="method">DELETE</span>
+        <span class="url">/v2/foo/åberg &lt;&gt;</span>
+      </a>
+      <div class="endpoint-body">
+        <div class="description"><p>Specifically delete this last name.</p>
 </div>
       </div>
     </div>
@@ -79,79 +89,30 @@
 
       </div>
       <div class="grid-decls">
-        <section id="MyService" class="section-content section-service">
+        <section id="MyService_MyService" class="section-content section-service">
   <h1 class="section-title">
-    <a class="link" href="#MyService">MyService</a>
+    <a class="link" href="#MyService_MyService">MyService::MyService</a>
     <span class="type">service</span>
   </h1>
   <div class="section-body">
     <div class="description"><h1>HUGE Example Service</h1>
 <p>This is a test to see if the documentation makes <em>any</em> sense.</p>
 </div>
-    <div class="endpoint get" id="MyService_GET_v2_foo_0">
+    <div class="endpoint get" id="MyService::MyService_GET_v2_foo_0">
       <h2 class="endpoint-title">
         <span class="method">GET</span>
-        <a class="url" href="#MyService_GET_v2_foo_0">/v2/foo</a>
+        <a class="url" href="#MyService::MyService_GET_v2_foo_0">/v2/foo</a>
       </h2>
       <div class="endpoint-body">
         <div class="description"><h1>Search for a list of foos.</h1>
 <p>This uses method <code>GET</code> because it is <em>good</em>.</p>
 </div>
-        <h2>Returns</h2>
-        <table class="spaced">
-          <tr>
-            <td class="status">404</td>
-            <td class="mime">
-              <code>text/plain</code>
-            </td>
-            <td class="type">
-              <em>no body</em>
-            </td>
-            <td class="description">
-              <p>resource not found</p>
-<p>Something else?</p>
-
-            </td>
-          </tr>
-          <tr>
-            <td class="status">500</td>
-            <td class="mime">
-              <code>text/plain</code>
-            </td>
-            <td class="type">
-              <span class="ty"><span class="type-rp-name">
-                <a href="common_1_0_0.html#ErrorMessage">ErrorMessage</a>
-              </span>
-              </span>
-            </td>
-            <td class="description">
-              <p>returned on internal server errors</p>
-
-            </td>
-          </tr>
-          <tr>
-            <td class="status">501</td>
-            <td class="mime">
-              <code>application/json</code>
-            </td>
-            <td class="type">
-              <span class="ty"><span class="type-rp-name">
-                <a href="common_1_0_0.html#ErrorMessage">ErrorMessage</a>
-              </span>
-              </span>
-            </td>
-            <td class="description">
-              <p>other, interesting stuff</p>
-
-            </td>
-          </tr>
-        </table>
       </div>
     </div>
-    <div class="endpoint post" id="MyService_POST_v2_foo_1">
+    <div class="endpoint post" id="MyService::MyService_POST_v2_foo_1">
       <h2 class="endpoint-title">
         <span class="method">POST</span>
-        <a class="url" href="#MyService_POST_v2_foo_1">/v2/foo</a>
+        <a class="url" href="#MyService::MyService_POST_v2_foo_1">/v2/foo</a>
       </h2>
       <div class="endpoint-body">
         <div class="description"><p>Create a new foo.</p>
@@ -159,71 +120,30 @@
         <h2>Accepts</h2>
         <table class="spaced">
           <tr>
+            <td class="name">
+              <code>foo</code>
+            </td>
             <td class="mime">
               <code>application/json</code>
             </td>
             <td class="type">
-              <em>no body</em>
-            </td>
-            <td class="description">
-            </td>
-          </tr>
-        </table>
-        <h2>Returns</h2>
-        <table class="spaced">
-          <tr>
-            <td class="status">404</td>
-            <td class="mime">
-              <code>text/plain</code>
-            </td>
-            <td class="type">
-              <em>no body</em>
-            </td>
-            <td class="description">
-              <p>resource not found</p>
-<p>Something else?</p>
-
-            </td>
-          </tr>
-          <tr>
-            <td class="status">500</td>
-            <td class="mime">
-              <code>text/plain</code>
-            </td>
-            <td class="type">
-              <span class="ty"><span class="type-rp-name">
-                <a href="common_1_0_0.html#ErrorMessage">ErrorMessage</a>
+              <span class="ty"><span class="type-any">
+                <code class="type-name">any</code>
               </span>
               </span>
             </td>
             <td class="description">
-              <p>returned on internal server errors</p>
-
-            </td>
-          </tr>
-          <tr>
-            <td class="status">501</td>
-            <td class="mime">
-              <code>application/json</code>
-            </td>
-            <td class="type">
-              <span class="ty"><span class="type-rp-name">
-                <a href="common_1_0_0.html#ErrorMessage">ErrorMessage</a>
-              </span>
-              </span>
-            </td>
-            <td class="description">
-              <p>other, interesting stuff</p>
+              <p>Only acceptable when I'm ~drunk~ Sober!</p>
 
             </td>
           </tr>
         </table>
       </div>
     </div>
-    <div class="endpoint get" id="MyService_GET_v2_foo_id_2">
+    <div class="endpoint get" id="MyService::MyService_GET_v2_foo_id_2">
       <h2 class="endpoint-title">
         <span class="method">GET</span>
-        <a class="url" href="#MyService_GET_v2_foo_id_2">/v2/foo/{id}</a>
+        <a class="url" href="#MyService::MyService_GET_v2_foo_id_2">/v2/foo/{id}</a>
       </h2>
       <div class="endpoint-body">
         <div class="description"><h1>Get the foo with the current ID.</h1>
@@ -231,65 +151,42 @@
 <pre><code class="language-yaml">foo: 1234
 </code></pre>
 </div>
-        <h2>Returns</h2>
+      </div>
+    </div>
+    <div class="endpoint delete" id="MyService::MyService_DELETE_v2_foo_id_3">
+      <h2 class="endpoint-title">
+        <span class="method">DELETE</span>
+        <a class="url" href="#MyService::MyService_DELETE_v2_foo_id_3">/v2/foo/{id}</a>
+      </h2>
+      <div class="endpoint-body">
+        <div class="description"><h1>Delete the foo with the given ID.</h1>
+<p>TODO: validate that endpoint has sane structure.</p>
+<ul>
+<li>If the endpoint is named, zero or one unnamed accept is permitted and it will take the
+name of the endpoint.</li>
+<li>All other accepts must be named.</li>
+<li>All accepts must either have unique mime-types, or only have one unspecified mime type.</li>
+</ul>
+</div>
+        <h2>Accepts</h2>
         <table class="spaced">
           <tr>
-            <td class="status">404</td>
+            <td class="name">
+              <code>delete_id</code>
+            </td>
             <td class="mime">
-              <code>text/plain</code>
-            </td>
-            <td class="type">
-              <em>no body</em>
-            </td>
-            <td class="description">
-              <p>resource not found</p>
-<p>Something else?</p>
-
-            </td>
-          </tr>
-          <tr>
-            <td class="status">500</td>
-            <td class="mime">
-              <code>text/plain</code>
+              <code>*/*</code>
             </td>
             <td class="type">
               <span class="ty"><span class="type-rp-name">
-                <a href="common_1_0_0.html#ErrorMessage">ErrorMessage</a>
+                <a href="common_1_0_0.html#Entry">Entry</a>
               </span>
               </span>
             </td>
             <td class="description">
-              <p>returned on internal server errors</p>
-
-            </td>
-          </tr>
-          <tr>
-            <td class="status">501</td>
-            <td class="mime">
-              <code>application/json</code>
-            </td>
-            <td class="type">
-              <span class="ty"><span class="type-rp-name">
-                <a href="common_1_0_0.html#ErrorMessage">ErrorMessage</a>
-              </span>
-              </span>
-            </td>
-            <td class="description">
-              <p>other, interesting stuff</p>
-
             </td>
           </tr>
         </table>
-      </div>
-    </div>
-    <div class="endpoint delete" id="MyService_DELETE_v2_foo_id_3">
-      <h2 class="endpoint-title">
-        <span class="method">DELETE</span>
-        <a class="url" href="#MyService_DELETE_v2_foo_id_3">/v2/foo/{id}</a>
-      </h2>
-      <div class="endpoint-body">
-        <div class="description"><h4>Delete the entity with the given id <code>{id}</code></h4>
-</div>
         <h2>Returns</h2>
         <table class="spaced">
           <tr>
@@ -298,8 +195,8 @@
               <code>application/json</code>
             </td>
             <td class="type">
-              <span class="ty"><span class="type-rp-name">
-                <a href="common_1_0_0.html#ErrorMessage">ErrorMessage</a>
+              <span class="ty"><span class="type-any">
+                <code class="type-name">any</code>
               </span>
               </span>
             </td>
@@ -308,50 +205,31 @@
 
             </td>
           </tr>
+        </table>
+      </div>
+    </div>
+    <div class="endpoint delete" id="MyService::MyService_DELETE_v2_foo_%C3%A5berg%20%3C%3E_4">
+      <h2 class="endpoint-title">
+        <span class="method">DELETE</span>
+        <a class="url" href="#MyService::MyService_DELETE_v2_foo_%C3%A5berg%20%3C%3E_4">/v2/foo/åberg &lt;&gt;</a>
+      </h2>
+      <div class="endpoint-body">
+        <div class="description"><p>Specifically delete this last name.</p>
+</div>
+        <h2>Returns</h2>
+        <table class="spaced">
           <tr>
-            <td class="status">404</td>
+            <td class="status">302</td>
             <td class="mime">
-              <code>text/plain</code>
+              <code>*/*</code>
             </td>
             <td class="type">
-              <em>no body</em>
-            </td>
-            <td class="description">
-              <p>resource not found</p>
-<p>Something else?</p>
-
-            </td>
-          </tr>
-          <tr>
-            <td class="status">500</td>
-            <td class="mime">
-              <code>text/plain</code>
-            </td>
-            <td class="type">
-              <span class="ty"><span class="type-rp-name">
-                <a href="common_1_0_0.html#ErrorMessage">ErrorMessage</a>
-              </span>
-              </span>
-            </td>
-            <td class="description">
-              <p>returned on internal server errors</p>
-
-            </td>
-          </tr>
-          <tr>
-            <td class="status">501</td>
-            <td class="mime">
-              <code>application/json</code>
-            </td>
-            <td class="type">
-              <span class="ty"><span class="type-rp-name">
-                <a href="common_1_0_0.html#ErrorMessage">ErrorMessage</a>
+              <span class="ty"><span class="type-any">
+                <code class="type-name">any</code>
               </span>
               </span>
             </td>
             <td class="description">
-              <p>other, interesting stuff</p>
-
             </td>
           </tr>
         </table>

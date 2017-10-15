@@ -4,8 +4,8 @@ use super::RUST_CONTEXT;
 use backend::{CompilerOptions, Environment, ForContext, FromNaming, Naming, PackageUtils,
               SnakeCase};
 use backend::errors::*;
-use core::{ForEachLoc, RpEnumBody, RpEnumOrdinal, RpField, RpInterfaceBody, RpName, RpTupleBody,
-           RpType, RpTypeBody};
+use core::{ForEachLoc, RpEnumBody, RpEnumOrdinal, RpField, RpInterfaceBody, RpName, RpServiceBody,
+           RpServiceEndpoint, RpTupleBody, RpType, RpTypeBody};
 use genco::{Element, IntoTokens, Quoted, Rust, Tokens};
 use genco::rust::{imported_alias, imported_alias_ref, imported_ref};
 use listeners::Listeners;
@@ -17,26 +17,26 @@ use std::borrow::Cow;
 /// Serializer derives.
 pub struct Derives;
 
-impl<'a> IntoTokens<'a, Rust<'a>> for Derives {
-    fn into_tokens(self) -> Tokens<'a, Rust<'a>> {
+impl<'el> IntoTokens<'el, Rust<'el>> for Derives {
+    fn into_tokens(self) -> Tokens<'el, Rust<'el>> {
         "#[derive(Serialize, Deserialize, Debug)]".into()
     }
 }
 
 /// A serde rename annotation.
-pub struct Rename<'a>(&'a str);
+pub struct Rename<'el>(&'el str);
 
-impl<'a> IntoTokens<'a, Rust<'a>> for Rename<'a> {
-    fn into_tokens(self) -> Tokens<'a, Rust<'a>> {
+impl<'el> IntoTokens<'el, Rust<'el>> for Rename<'el> {
+    fn into_tokens(self) -> Tokens<'el, Rust<'el>> {
         toks!["#[serde(rename = ", self.0.quoted(), ")]"]
     }
 }
 
 /// Tag attribute.
-pub struct Tag<'a>(&'a str);
+pub struct Tag<'el>(&'el str);
 
-impl<'a> IntoTokens<'a, Rust<'a>> for Tag<'a> {
-    fn into_tokens(self) -> Tokens<'a, Rust<'a>> {
+impl<'el> IntoTokens<'el, Rust<'el>> for Tag<'el> {
+    fn into_tokens(self) -> Tokens<'el, Rust<'el>> {
         toks!["#[serde(tag = ", self.0.quoted(), ")]"]
     }
 }
@@ -95,7 +95,7 @@ impl RustBackend {
         name.join(TYPE_SEP)
     }
 
-    fn convert_type_id<'a>(&self, name: &'a RpName) -> Result<Element<'a, Rust<'a>>> {
+    fn convert_type_id<'el>(&self, name: &'el RpName) -> Result<Element<'el, Rust<'el>>> {
         let registered = self.env.lookup(name)?;
 
         let local_name = registered.local_name(&name, |p| p.join(TYPE_SEP), |c| c.join(SCOPE_SEP));
@@ -114,7 +114,7 @@ impl RustBackend {
         Ok(local_name.into())
     }
 
-    fn into_type<'a>(&self, field: &'a RpField) -> Result<Tokens<'a, Rust<'a>>> {
+    fn into_type<'el>(&self, field: &'el RpField) -> Result<Tokens<'el, Rust<'el>>> {
         let stmt = self.into_rust_type(&field.ty)?;
 
         if field.is_optional() {
@@ -124,11 +124,11 @@ impl RustBackend {
         Ok(stmt)
     }
 
-    fn enum_value_fn<'a>(
+    fn enum_value_fn<'el>(
         &self,
         name: String,
-        match_body: Tokens<'a, Rust<'a>>,
-    ) -> Tokens<'a, Rust<'a>> {
+        match_body: Tokens<'el, Rust<'el>>,
+    ) -> Tokens<'el, Rust<'el>> {
         let mut value_fn = Tokens::new();
         let mut match_decl = Tokens::new();
 
@@ -144,7 +144,7 @@ impl RustBackend {
         value_fn
     }
 
-    fn datetime<'a>(&self, ty: &RpType) -> Result<Tokens<'a, Rust<'a>>> {
+    fn datetime<'el>(&self, ty: &RpType) -> Result<Tokens<'el, Rust<'el>>> {
         if let Some(ref datetime) = self.datetime {
             return Ok(datetime.clone().into());
         }
@@ -154,7 +154,7 @@ impl RustBackend {
         )
     }
 
-    pub fn into_rust_type<'a>(&self, ty: &'a RpType) -> Result<Tokens<'a, Rust<'a>>> {
+    pub fn into_rust_type<'el>(&self, ty: &'el RpType) -> Result<Tokens<'el, Rust<'el>>> {
         use self::RpType::*;
 
         let ty = match *ty {
@@ -195,7 +195,7 @@ impl RustBackend {
     }
 
     // Build the corresponding element out of a field declaration.
-    fn field_element<'a>(&self, field: &'a RpField) -> Result<Tokens<'a, Rust<'a>>> {
+    fn field_element<'el>(&self, field: &'el RpField) -> Result<Tokens<'el, Rust<'el>>> {
         let mut elements = Tokens::new();
 
         let ident = self.ident(field.ident());
@@ -214,10 +214,10 @@ impl RustBackend {
         Ok(elements.into())
     }
 
-    pub fn process_tuple<'a>(
+    pub fn process_tuple<'el>(
         &self,
-        out: &mut RustFileSpec<'a>,
-        body: &'a RpTupleBody,
+        out: &mut RustFileSpec<'el>,
+        body: &'el RpTupleBody,
     ) -> Result<()> {
         let mut fields = Tokens::new();
 
@@ -241,7 +241,11 @@ impl RustBackend {
         Ok(())
     }
 
-    pub fn process_enum<'a>(&self, out: &mut RustFileSpec<'a>, body: &'a RpEnumBody) -> Result<()> {
+    pub fn process_enum<'el>(
+        &self,
+        out: &mut RustFileSpec<'el>,
+        body: &'el RpEnumBody,
+    ) -> Result<()> {
         let name = self.convert_type_name(&body.name);
 
         // variant declarations
@@ -297,7 +301,11 @@ impl RustBackend {
         Ok(())
     }
 
-    pub fn process_type<'a>(&self, out: &mut RustFileSpec<'a>, body: &'a RpTypeBody) -> Result<()> {
+    pub fn process_type<'el>(
+        &self,
+        out: &mut RustFileSpec<'el>,
+        body: &'el RpTypeBody,
+    ) -> Result<()> {
         let mut fields = Tokens::new();
 
         for field in &body.fields {
@@ -324,12 +332,12 @@ impl RustBackend {
         Ok(())
     }
 
-    pub fn process_interface<'a>(
+    pub fn process_interface<'el>(
         &self,
-        out: &mut RustFileSpec<'a>,
-        body: &'a RpInterfaceBody,
+        out: &mut RustFileSpec<'el>,
+        body: &'el RpInterfaceBody,
     ) -> Result<()> {
-        let type_name = self.convert_type_name(&body.name);
+        let type_name = body.name.join(TYPE_SEP);
         let mut t = Tokens::new();
 
         t.push(Derives);
@@ -370,6 +378,55 @@ impl RustBackend {
         t.push("}");
 
         out.0.push(t);
+        Ok(())
+    }
+
+    /// Generate a base struct for service definitions.
+    fn service_struct<'el>(&self, body: &'el RpServiceBody) -> Result<Tokens<'el, Rust<'el>>> {
+        let type_name = body.name.join(TYPE_SEP);
+
+        let mut t = Tokens::new();
+
+        t.push(toks!["pub struct ", type_name, " {"]);
+        t.push("}");
+
+        Ok(t)
+    }
+
+    /// Generate the implementation body for an endpoint
+    fn service_endpoint_impl<'el>(
+        &self,
+        endpoint: &'el RpServiceEndpoint,
+    ) -> Result<Tokens<'el, Rust<'el>>> {
+        let mut t = Tokens::new();
+        t.push("pub fn ");
+        Ok(t)
+    }
+
+    /// Generate an implementation for service definitions.
+    fn service_impl<'el>(&self, body: &'el RpServiceBody) -> Result<Tokens<'el, Rust<'el>>> {
+        let type_name = body.name.join(TYPE_SEP);
+
+        let mut b = Tokens::new();
+
+        for endpoint in &body.endpoints {
+            b.push(self.service_endpoint_impl(endpoint)?);
+        }
+
+        let mut t = Tokens::new();
+        t.push(toks!["impl ", type_name, " {"]);
+        t.nested(b);
+        t.push("}");
+        Ok(t)
+    }
+
+    pub fn process_service<'el>(
+        &self,
+        out: &mut RustFileSpec<'el>,
+        body: &'el RpServiceBody,
+    ) -> Result<()> {
+        out.0.push(self.service_struct(body)?);
+        out.0.push(self.service_impl(body)?);
         Ok(())
     }
 }

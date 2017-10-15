@@ -791,40 +791,30 @@ impl JavaBackend {
 
             for r in &endpoint.returns {
                 let check = match r.status {
-                    Some(200) => true,
-                    Some(_) => false,
-                    None => true,
+                    200 => true,
+                    _ => false,
                 };
 
                 if check {
-                    ret = match r.ty {
-                        Some(ref ret) => Some(self.into_java_type(ret)?),
-                        None => None,
-                    };
+                    ret = Some(self.into_java_type(&r.ty)?);
                 }
             }
 
             for accept in &endpoint.accepts {
-                if let Some(ref alias) = accept.alias {
-                    let alias = Rc::new(self.snake_to_lower_camel.convert(alias));
-                    let mut method = Method::new(alias);
-                    method.modifiers = vec![];
+                let name = Rc::new(self.snake_to_lower_camel.convert(accept.name.as_str()));
+                let mut method = Method::new(name);
+                method.modifiers = vec![];
 
-                    if let Some(ref ret) = ret {
-                        method.returns = self.async_container.with_arguments(vec![ret.clone()]);
-                    } else {
-                        method.returns =
-                            self.async_container.with_arguments(vec![self.void.clone()]);
-                    }
-
-                    if let Some(ref ty) = accept.ty {
-                        let arg = self.into_java_type(ty)?;
-                        let arg = Argument::new(arg, "request");
-                        method.arguments.push(arg);
-                    }
-
-                    spec.methods.push(method);
+                if let Some(ref ret) = ret {
+                    method.returns = self.async_container.with_arguments(vec![ret.clone()]);
+                } else {
+                    method.returns = self.async_container.with_arguments(vec![self.void.clone()]);
                 }
+
+                let arg = self.into_java_type(&accept.ty)?;
+                let arg = Argument::new(arg, "request");
+                method.arguments.push(arg);
+                spec.methods.push(method);
             }
         }
 

@@ -41,6 +41,11 @@ error_chain! {
             display("{}", message)
         }
 
+        EndpointConflict(message: String, source: ErrorPos, target: ErrorPos) {
+            description("endpoint conflict")
+            display("{}", message)
+        }
+
         Errors(errors: Vec<Error>) {
             description("errors")
             display("encountered {} error(s)", errors.len())
@@ -63,6 +68,11 @@ error_chain! {
             description("missing type implementation")
             display("missing implementation for type `{}`, {}", ty, suggestion)
         }
+
+        MissingName {
+            description("missing name")
+            display("missing name")
+        }
     }
 }
 
@@ -82,6 +92,7 @@ impl WithPos for Error {
             &Overflow(..) => self,
             &EnumVariantConflict(..) => self,
             &FieldConflict(..) => self,
+            &EndpointConflict(..) => self,
             &Errors(..) => self,
             _ => {
                 let message = format!("{}", self);

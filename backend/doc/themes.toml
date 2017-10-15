@@ -1,44 +1,17 @@
 # default variable set for all themes
+# colors: http://paletton.com/#uid=34j0N0krYEdhdNimII0BNy6BLoK
 [default]
-half_margin="5px"
 margin="10px"
-double_margin="20px"
+section_margin="40px"
 
-font_size="14px"
-font_family="Roboto, Helvetica, sans-serif"
-body_bg="#DDDDDD"
-bg="#FFFFFF"
+heading_color="#C57100"
+background_color="#FFFFFF"
+link_color="#310B87"
+title_color="#87BA00"
 
-title_bg="#F2F2F2"
-title_border_color="#D9D9D9"
-
-packages_bg="#FFFFFF"
-type_bg="#FFFFFF"
-interface_bg="#FFFFFF"
-enum_bg="#FFFFFF"
-tuple_bg="#FFFFFF"
-service_bg="#FFFFFF"
-
-endpoint_font_size="14px"
-endpoint_title_font="Roboto, Helvetica, sans-serif"
-
-get_method_fg="#337AB7"
-get_method_bg="#D9EDF7"
-
-post_method_fg="#5CB85C"
-post_method_bg="#DFF0D8"
-
-put_method_fg="#ED9C28"
-put_method_bg="#FCF8E3"
-
-delete_method_fg="#D9534F"
-delete_method_bg="#F2DEDE"
+fonts="Verdana, Verdana, Geneva, sans-serif"
+monospace_fonts="Lucida Console, Monaco5, monospace"
 
 [light]
-bg="#FFFFFF"
-title_bg="#F2F2F2"
 
 [dark]
-bg="#999999"
-title_bg="#F2F2F2"
-body_bg="#000000"

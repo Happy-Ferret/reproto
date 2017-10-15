@@ -1,49 +1,43 @@
 use common as c;
 
-/// # HUGE Example Service
+/// HUGE Example Service
 ///
 /// This is a test to see if the documentation makes _any_ sense.
 service MyService {
-  /// Gets all the good stuff!
   `v2/foo` {
-    /// # Search for a list of foos.
+    /// Search for a list of foos.
     ///
     /// This uses method `GET` because it is _good_.
     GET {
     }
 
     /// Create a new foo.
-    POST {
-      accepts "application/json";
+    POST as foo {
+      /// Only acceptable when I'm ~drunk~ Sober!
+      accepts any "application/json";
     }
 
-    `{id: string}` {
-      /// # Get the foo with the current ID.
-      ///
-      /// These things cannot do shit.
-      ///
-      /// ```yaml
-      /// foo: 1234
-      /// ```
-      GET {
-      }
-
-      /// #### Delete the entity with the given id `{id}`
-      DELETE {
-        /// Redirect stuff.
-        returns 302 "application/json" c::ErrorMessage;
-      }
-    }
-
-    /// resource not found
+    /// Get the foo with the current ID.
     ///
-    /// Something else?
-    returns 404 "text/plain";
+    /// These things cannot do shit.
+    ///
+    /// ```yaml
+    /// foo: 1234
+    /// ```
+    GET `{id:string}` as get_id {
+    }
 
-    /// returned on internal server errors
-    returns 500 "text/plain" c::ErrorMessage;
+    /// Delete the foo with the given ID.
+    DELETE `{id:string}` as delete_id {
+      accepts c::Entry;
 
-    /// other, interesting stuff
-    returns 501 "application/json" c::ErrorMessage;
+      /// Redirect stuff.
+      returns 302 any "application/json";
+    }
+
+    /// Specifically delete this last name.
+    DELETE "åberg <>" {
+      returns 302 any;
+    }
   }
 }

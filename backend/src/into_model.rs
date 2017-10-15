@@ -3,7 +3,7 @@ use super::scope::Scope;
 pub use core::*;
 pub use parser::ast::*;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet, LinkedList, hash_map};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -376,140 +376,139 @@ impl<'input> IntoModel for PathSpec<'input> {
     type Output = RpPathSpec;
 
     fn into_model(self, scope: &Scope) -> Result<RpPathSpec> {
-        Ok(RpPathSpec { segments: self.segments.into_model(scope)? })
+        Ok(RpPathSpec::new(self.segments.into_model(scope)?))
     }
 }
 
-struct Node {
-    parent: Option<Rc<RefCell<Node>>>,
-    method: Option<Loc<String>>,
-    path: Option<Loc<RpPathSpec>>,
-    options: Vec<Loc<RpOptionDecl>>,
-    comment: Vec<String>,
-    returns: Vec<RpServiceReturns>,
-    accepts: Vec<RpServiceAccepts>,
+struct ServicePath {
+    parent: Option<Rc<RefCell<ServicePath>>>,
+    segments: Vec<RpPathSegment>,
 }
 
-impl Node {
-    fn push_returns(&mut self, input: RpServiceReturns) {
-        self.returns.push(input);
+/// Decode the full path of an endpoint.
+fn service_full_path(
+    path: Rc<RefCell<ServicePath>>,
+    last: Option<Loc<RpPathSpec>>,
+) -> Result<Vec<RpPathSegment>> {
+    let mut segments = Vec::new();
+
+    let mut current = Some(path);
+
+    while let Some(next) = current {
+        let n = next.try_borrow()?;
+        segments.extend(n.segments.iter().rev().cloned());
+        current = n.parent.clone();
     }
 
-    fn push_accepts(&mut self, input: RpServiceAccepts) {
-        self.accepts.push(input);
+    segments.reverse();
+
+    if let Some(last) = last {
+        segments.extend(last.segments.iter().cloned());
     }
+
+    Ok(segments)
 }
 
-fn convert_return(
+/// Decode service entries.
+fn service_entries<'input>(
     scope: &Scope,
-    comment: Vec<String>,
-    status: Option<Loc<RpNumber>>,
-    produces: Option<Loc<String>>,
-    ty: Option<Loc<Type>>,
-    options: Vec<Loc<OptionDecl>>,
-) -> Result<RpServiceReturns> {
-    let options = options.into_model(scope)?;
+    default_name: Option<Loc<&'input str>>,
+    entries: Vec<Loc<ServiceEntry>>,
+) -> Result<(Vec<RpServiceAccepts>, Vec<RpServiceReturns>)> {
+    use self::ServiceEntry::*;
+    use self::hash_map::Entry::*;
 
-    let produces = produces.or(options.find_one_string("produces")?);
+    let mut accepts = Vec::new();
+    let mut returns = Vec::new();
+    let mut seen: HashMap<String, Pos> = HashMap::new();
 
-    let produces = if let Some(produces) = produces {
-        Some(produces.and_then(|p| {
-            p.parse().map_err::<Error, _>(|_| "invalid mime".into())
-        })?)
+    for entry in entries {
+        let (entry, pos) = entry.take_pair();
+
+        match entry {
+            Accepts(acc) => {
+                let acc = (default_name.as_ref(), acc).into_model(scope)?;
+
+                // Check for duplicates.
+                match seen.entry(acc.name.to_string()) {
+                    Occupied(entry) => {
+                        return Err(
+                            ErrorKind::EndpointConflict(
+                                format!("endpoint `{}` already defined", acc.name.as_str()),
+                                pos.into(),
+                                entry.get().into(),
+                            ).into(),
+                        );
+                    }
+                    Vacant(entry) => {
+                        entry.insert(pos.clone());
+                    }
+                }
+
+                accepts.push(acc);
+            }
+            Returns(ret) => {
+                returns.push(ret.into_model(scope)?);
+            }
+        }
+    }
+
+    Ok((accepts, returns))
+}
+
+fn parse_mime(mime: Option<Loc<String>>) -> Result<Option<Mime>> {
+    if let Some(mime) = mime {
+        mime.and_then(|m| {
+            m.parse().map_err(|_| "invalid mime type".into()).map(Some)
+        })
     } else {
-        None
-    };
+        Ok(None)
+    }
+}
 
-    let status = status.or(options.find_one_u32("status")?);
+impl<'input> IntoModel for (Option<&'input Loc<&'input str>>, ServiceAccepts<'input>) {
+    type Output = RpServiceAccepts;
 
-    let status = if let Some(status) = status {
-        Some(status.and_then(|s| {
-            s.to_u32().ok_or_else::<Error, _>(
-                || "invalid status".into(),
+    fn into_model(self, scope: &Scope) -> Result<Self::Output> {
+        let (default_name, accepts) = self;
+
+        let comment = accepts.comment.into_iter().map(ToOwned::to_owned).collect();
+
+        let name = accepts
+            .name
+            .or_else(|| default_name.map(Clone::clone))
+            .into_model(scope)?;
+
+        let name = name.ok_or_else(|| ErrorKind::MissingName)?;
+
+        Ok(RpServiceAccepts {
+            comment: comment,
+            ty: accepts.ty.into_model(scope)?,
+            mime: parse_mime(accepts.mime)?,
+            name: name,
+        })
+    }
+}
+
+impl<'input> IntoModel for ServiceReturns<'input> {
+    type Output = RpServiceReturns;
+
+    fn into_model(self, scope: &Scope) -> Result<Self::Output> {
+        let comment = self.comment.into_iter().map(ToOwned::to_owned).collect();
+
+        let status = self.status.and_then(|n| {
+            n.to_u32().ok_or_else::<Error, _>(
+                || "invalid status code".into(),
             )
-        })?)
-    } else {
-        None
-    };
-
-    Ok(RpServiceReturns {
-        comment: comment,
-        ty: ty.into_model(scope)?,
-        produces: produces,
-        status: status,
-    })
-}
-
-fn convert_accepts(
-    scope: &Scope,
-    comment: Vec<String>,
-    accepts: Option<Loc<String>>,
-    alias: Option<Loc<String>>,
-    ty: Option<Loc<Type>>,
-    options: Vec<Loc<OptionDecl>>,
-) -> Result<RpServiceAccepts> {
-    let accepts = accepts.or(options.find_one_string("accept")?);
-
-    let accepts = if let Some(accepts) = accepts {
-        let (accepts, pos) = accepts.take_pair();
-
-        let accepts = accepts.parse().chain_err(|| {
-            ErrorKind::Pos("not a valid mime type".to_owned(), pos.into())
         })?;
 
-        Some(accepts)
-    } else {
-        None
-    };
-
-    Ok(RpServiceAccepts {
-        comment: comment,
-        ty: ty.into_model(scope)?,
-        accepts: accepts,
-        alias: alias,
-    })
-}
-
-/// Recursively unwind all inherited information about the given node, and convert to a service
-/// endpoint.
-fn unwind(node: Rc<RefCell<Node>>) -> Result<RpServiceEndpoint> {
-    let mut method: Option<Loc<String>> = None;
-    let mut path = Vec::new();
-    let mut options: Vec<Loc<RpOptionDecl>> = Vec::new();
-    let mut returns = Vec::new();
-    let mut accepts = Vec::new();
-
-    let comment = node.try_borrow()?.comment.clone();
-
-    let mut current = Some(node);
-
-    while let Some(step) = current {
-        let next = step.try_borrow()?;
-
-        // set method if not set
-        method = method.or_else(|| next.method.clone());
-
-        if let Some(ref next_url) = next.path {
-            // correct order by extending in reverse
-            path.extend(next_url.as_ref().segments.iter().rev().map(Clone::clone));
-        }
-
-        options.extend(next.options.iter().map(Clone::clone).rev());
-        returns.extend(next.returns.iter().map(Clone::clone));
-        accepts.extend(next.accepts.iter().map(Clone::clone));
-
-        current = next.parent.clone();
+        Ok(RpServiceReturns {
+            comment: comment,
+            status: status,
+            ty: self.ty.into_model(scope)?,
+            mime: parse_mime(self.mime)?,
+        })
     }
-
-    let path = RpPathSpec { segments: path.into_iter().rev().collect() };
-
-    Ok(RpServiceEndpoint {
-        method: method,
-        path: path,
-        comment: comment,
-        returns: returns,
-        accepts: accepts,
-    })
 }
 
 impl<'input> IntoModel for ServiceBody<'input> {
@@ -518,96 +517,62 @@ impl<'input> IntoModel for ServiceBody<'input> {
     fn into_model(self, scope: &Scope) -> Result<Self::Output> {
         let mut endpoints: Vec<RpServiceEndpoint> = Vec::new();
 
-        // collecting root declarations
-        let root = Rc::new(RefCell::new(Node {
+        let root = Rc::new(RefCell::new(ServicePath {
             parent: None,
-            method: None,
-            path: None,
-            options: Vec::new(),
-            comment: Vec::new(),
-            returns: Vec::new(),
-            accepts: Vec::new(),
+            segments: vec![],
         }));
 
-        let mut queue = Vec::new();
-        queue.push((root, self.children));
+        let mut queue = LinkedList::new();
 
-        while let Some((parent, children)) = queue.pop() {
+        queue.push_back((root, self.children));
+
+        while let Some((parent, children)) = queue.pop_front() {
             for child in children {
-                process_child(scope, &mut queue, &parent, child)?;
-            }
+                match child {
+                    ServiceNested::Segment { path, children } => {
+                        let current = Rc::new(RefCell::new(ServicePath {
+                            parent: Some(parent.clone()),
+                            segments: path.take().into_model(scope)?.segments,
+                        }));
 
-            let p = parent.as_ref().try_borrow()?;
+                        queue.push_back((current, children));
+                    }
+                    ServiceNested::Endpoint {
+                        comment,
+                        method,
+                        path,
+                        default_name,
+                        options: _options,
+                        entries,
+                    } => {
+                        let path_segments =
+                            service_full_path(parent.clone(), path.into_model(scope)?)?;
 
-            if p.method.is_some() {
-                endpoints.push(unwind(parent.clone())?);
+                        let comment = comment.into_iter().map(ToOwned::to_owned).collect();
+
+                        let (accepts, returns) = service_entries(scope, default_name, entries)?;
+
+                        endpoints.push(RpServiceEndpoint {
+                            comment: comment,
+                            method: method.into_model(scope)?,
+                            path: RpPathSpec::new(path_segments),
+                            accepts: accepts,
+                            returns: returns,
+                        });
+                    }
+                }
             }
         }
 
-        let endpoints = endpoints.into_iter().rev().collect();
+        let comment = self.comment.into_iter().map(ToOwned::to_owned).collect();
 
-        return Ok(RpServiceBody {
+        Ok(RpServiceBody {
             name: scope.as_name(),
             local_name: self.name.to_string(),
-            comment: self.comment.into_iter().map(ToOwned::to_owned).collect(),
+            comment: comment,
             endpoints: endpoints,
             decls: vec![],
-        });
-
-        fn process_child<'input>(
-            scope: &Scope,
-            queue: &mut Vec<(Rc<RefCell<Node>>, Vec<ServiceNested<'input>>)>,
-            parent: &Rc<RefCell<Node>>,
-            child: ServiceNested<'input>,
-        ) -> Result<()> {
-            match child {
-                ServiceNested::Endpoint {
-                    method,
-                    path,
-                    comment,
-                    options,
-                    children,
-                } => {
-                    let node = Rc::new(RefCell::new(Node {
-                        parent: Some(parent.clone()),
-                        method: method.into_model(scope)?,
-                        path: path.into_model(scope)?,
-                        options: options.into_model(scope)?,
-                        comment: comment.into_iter().map(ToOwned::to_owned).collect(),
-                        returns: Vec::new(),
-                        accepts: Vec::new(),
-                    }));
-
-                    queue.push((node, children));
-                }
-                // end node, manifest an endpoint.
-                ServiceNested::Returns {
-                    comment,
-                    status,
-                    produces,
-                    ty,
-                    options,
-                } => {
-                    let comment = comment.into_iter().map(ToOwned::to_owned).collect();
-                    let returns = convert_return(scope, comment, status, produces, ty, options)?;
-                    parent.try_borrow_mut()?.push_returns(returns);
-                }
-                ServiceNested::Accepts {
-                    comment,
-                    accepts,
-                    alias,
-                    ty,
-                    options,
-                } => {
-                    let comment = comment.into_iter().map(ToOwned::to_owned).collect();
-                    let alias = alias.into_model(scope)?;
-                    let accepts = convert_accepts(scope, comment, accepts, alias, ty, options)?;
-                    parent.try_borrow_mut()?.push_accepts(accepts);
-                }
-            }
-
-            Ok(())
-        }
+        })
     }
 }
 

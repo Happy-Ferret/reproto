@@ -392,37 +392,13 @@ Return values are declared using the `returns` keyword.
 ```reproto
 service MyService {
   GET "posts" {
-    returns [Post] {
-      status 200;
-
-      // multiple mime types are supported
-      mime "text/yaml";
-      mime "application/json";
-    }
+    returns 200 [Post];
   }
 }
 
 type Post {
   title: string;
   author: string;
-}
-```
-
-Return statements can be inherited. As an example, any error type returned by any endpoint in the
-service can be declared in the root.
-
-```
-service MyService {
-  returns Error {
-    status 500;
-    mime "application/json";
-  }
-
-  // ...
-}
-
-type Error {
-  message: string;
 }
 ```
 
@@ -430,22 +406,81 @@ If your endpoint accepts a body, this is declared using the `accepts` keyword.
 
 ```reproto
 service MyService {
-  POST "posts" {
-    accepts Post {
-      // multiple mime types are supported.
-      accept "application/json";
-      accept "text/yaml";
-    }
+  POST "posts" as post {
+    accepts Post;
 
-    returns any {
-      status 200;
-    }
+    /// Returns the ID of the created POST.
+    returns 200 string;
   }
 }
 
 type Post {
   title: string;
   author: string;
+}
+```
+
+### Unique Endpoints
+
+Each `accepts` must designate a unique endpoint.
+
+The rules for determining these are the following.
+
+ * If more than one `accepts` is specified, all of them must specify a unique mime type.
+
+If the endpoint is named, one unnamed `accepts` is permitted and it will take the
+name of the endpoint.
+
+```reproto
+service MyService {
+  GET "posts" as post {
+    /// Send a structured post as JSON.
+    accepts Post "application/json";
+  }
+}
+```
+
+If no `accepts` are specified, the endpoint does not accept a body.
+
+```reproto
+service MyService {
+  GET "posts" as posts {
+    returns Post;
+  }
+}
+```
+
+If more than one `accepts` is specified and the endpoint _is_ named, all except one of them must be
+named.
+The unnamed `accepts` will take on the name of the endpoint.
+
+```reproto
+service MyService {
+  POST "posts" as post {
+    /// Send a structured post as JSON.
+    accepts Post "application/json";
+
+    /// Send a post as a blob of text.
+    accepts string "text/plain" as post_text;
+
+    returns string "text/plain";
+  }
+}
+```
+
+If more than one `accepts` is specified and the endpoint _is not_ named, all of them must be named.
+
+```reproto
+service MyService {
+  POST "posts" {
+    /// Send a structured post as JSON.
+    accepts Post "application/json" as post_json;
+
+    /// Send a post as a blob of text.
+    accepts string "text/plain" as post_text;
+
+    returns string "text/plain";
+  }
 }
 ```
 
