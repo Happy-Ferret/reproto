@@ -1,49 +1,24 @@
 use common as c;
 
-/// # HUGE Example Service
-///
-/// This is a test to see if the documentation makes _any_ sense.
 service MyService {
-  /// Gets all the good stuff!
-  `v2/foo` {
-    /// # Search for a list of foos.
-    ///
-    /// This uses method `GET` because it is _good_.
-    GET {
-    }
+    /// UNKNOWN
+    unknown();
 
-    /// Create a new foo.
-    POST {
-      accepts "application/json";
-    }
+    /// UNKNOWN
+    unknown_return() -> c::Entry;
 
-    `{id: string}` {
-      /// # Get the foo with the current ID.
-      ///
-      /// These things cannot do shit.
-      ///
-      /// ```yaml
-      /// foo: 1234
-      /// ```
-      GET {
-      }
+    /// UNKNOWN
+    unknown_argument(c::Entry);
 
-      /// #### Delete the entity with the given id `{id}`
-      DELETE {
-        /// Redirect stuff.
-        returns 302 "application/json" c::ErrorMessage;
-      }
-    }
+    /// UNARY
+    unary(c::Entry) -> c::Entry;
 
-    /// resource not found
-    ///
-    /// Something else?
-    returns 404 "text/plain";
+    /// SERVER_STREMAING
+    server_streaming(c::Entry) -> stream c::Entry;
 
-    /// returned on internal server errors
-    returns 500 "text/plain" c::ErrorMessage;
+    /// CLIENT_STREAMING
+    client_streaming(stream c::Entry) -> c::Entry;
 
-    /// other, interesting stuff
-    returns 501 "application/json" c::ErrorMessage;
-  }
+    /// BIDI_STREAMING
+    bidi_streaming(stream c::Entry) -> stream c::Entry;
 }

@@ -305,20 +305,33 @@ impl DocBackend {
         Ok(())
     }
 
+    /// Write the name of an endpoint.
+    fn write_endpoint_name(
+        &self,
+        out: &mut DocBuilder,
+        endpoint: &RpServiceEndpoint,
+    ) -> Result<()> {
+        html!(out, span {class => "name"} ~ Escape(endpoint.id.as_str()));
+
+        if let Some(alias) = endpoint.alias.as_ref() {
+            html!(out, span {class => "alias"} ~ Escape(alias));
+        }
+
+        Ok(())
+    }
+
+    /// Write a short section linking to and describing an endpoint.
     fn write_endpoint_short(
         &self,
         out: &mut DocBuilder,
-        index: usize,
         body: &RpServiceBody,
         endpoint: &RpServiceEndpoint,
     ) -> Result<()> {
-        let method = endpoint.method().unwrap_or("GET").to_owned();
-        let id = format!("{}_{}_{}", body.name, endpoint.id_parts(Self::fragment_filter).join("_"), index);
+        let id = format!("{}_{}", body.name, endpoint.id_parts(Self::fragment_filter).join("_"));
 
-        html!(out, div {class => format!("endpoint short {}", method.to_lowercase())} => {
+        html!(out, div {class => "endpoint short"} => {
             html!(out, a {class => "endpoint-title", href => format!("#{}", id)} => {
-                html!(out, span {class => "method"} ~ Escape(method.as_ref()));
-                html!(out, span {class => "url"} ~ Escape(endpoint.url().as_ref()));
+                self.write_endpoint_name(out, endpoint)?;
             });
 
             if !endpoint.comment.is_empty() {
@@ -362,91 +375,34 @@ impl DocBackend {
     fn write_endpoint(
         &self,
         out: &mut DocBuilder,
-        index: usize,
         body: &RpServiceBody,
         endpoint: &RpServiceEndpoint,
     ) -> Result<()> {
-        let method = endpoint.method().unwrap_or("GET").to_owned();
-        let id = format!("{}_{}_{}", body.name, endpoint.id_parts(Self::fragment_filter).join("_"), index);
+        let id = format!("{}_{}", body.name, endpoint.id_parts(Self::fragment_filter).join("_"));
 
-        html!(out, div {class => format!("endpoint {}", method.to_lowercase()), id => id} => {
+        html!(out, div {class => "endpoint", id => id} => {
             html!(out, h2 {class => "endpoint-title"} => {
-                html!(out, span {class => "method"} ~ Escape(method.as_ref()));
-
-                html!(out, a {class => "url", href => format!("#{}", id)}
-                    ~ Escape(endpoint.url().as_ref()));
+                self.write_endpoint_name(out, endpoint)?;
             });
 
             html!(out, div {class => "endpoint-body"} => {
                 self.write_description(out, &endpoint.comment)?;
 
-                if !endpoint.accepts.is_empty() {
-                    html!(out, h2 {} ~ "Accepts");
+                if let Some(request) = endpoint.request.as_ref().take().as_ref() {
+                    html!(out, h2 {} ~ "Request");
 
-                    html!(out, table {class => "spaced"} => {
-                        for accept in &endpoint.accepts {
-                            html!(out, tr {} => {
-                                let accepts = accept.accepts
-                                    .as_ref()
-                                    .map(|m| format!("{}", m))
-                                    .unwrap_or("*/*".to_owned());
-
-                                html!(out, td {class => "mime"} => {
-                                    html!(out, code {} ~ Escape(accepts.as_ref()))
-                                });
-
-                                html!(out, td {class => "type"} => {
-                                    if let Some(ref ty) = accept.ty {
-                                        let (ty, pos) = ty.as_ref_pair();
-                                        self.write_type(out, ty).with_pos(pos)?;
-                                    } else {
-                                        html!(out, em {} ~ "no body");
-                                    }
-                                });
-
-                                html!(out, td {class => "description"} => {
-                                    self.write_markdown(out, &accept.comment)?;
-                                });
-                            });
-                        }
+                    html!(out, div {class => "type"} => {
+                        let (ty, pos) = request.ty().as_ref_pair();
+                        self.write_type(out, ty).with_pos(pos)?;
                     });
                 }
 
-                if !endpoint.returns.is_empty() {
-                    html!(out, h2 {} ~ "Returns");
+                if let Some(response) = endpoint.response.as_ref().take().as_ref() {
+                    html!(out, h2 {} ~ "Response");
 
-                    html!(out, table {class => "spaced"} => {
-                        for response in &endpoint.returns {
-                            html!(out, tr {} => {
-                                let status = response.status
-                                    .as_ref()
-                                    .map(|status| format!("{}", status))
-                                    .unwrap_or("<em>no status</em>".to_owned());
-
-                                let produces = response.produces
-                                    .as_ref()
-                                    .map(|m| format!("{}", m))
-                                    .unwrap_or("*/*".to_owned());
-
-                                html!(out, td {class => "status"} ~ status);
-                                html!(out, td {class => "mime"} => {
-                                    html!(out, code {} ~ Escape(produces.as_ref()))
-                                });
-
-                                html!(out, td {class => "type"} => {
-                                    if let Some(ref ty) = response.ty {
-                                        let (ty, pos) = ty.as_ref_pair();
-                                        self.write_type(out, ty).with_pos(pos)?;
-                                    } else {
-                                        html!(out, em {} ~ "no body");
-                                    }
-                                });
-
-                                html!(out, td {class => "description"} => {
-                                    self.write_markdown(out, &response.comment)?;
-                                });
-                            });
-                        }
+                    html!(out, div {class => "type"} => {
+                        let (ty, pos) = response.ty().as_ref_pair();
+                        self.write_type(out, ty).with_pos(pos)?;
                     });
                 }
             });
@@ -511,8 +467,8 @@ impl DocBackend {
 
                     self.write_description(out, body.comment.iter().take(1))?;
 
-                    for (index, endpoint) in body.endpoints.iter().enumerate() {
-                        self.write_endpoint_short(out, index, &body, endpoint)?;
+                    for endpoint in body.endpoints.iter() {
+                        self.write_endpoint_short(out, &body, endpoint)?;
                     }
                 }
             })
@@ -562,8 +518,8 @@ impl DocBackend {
             html!(out, div {class => "section-body"} => {
                 self.write_description(&mut out, &body.comment)?;
 
-                for (index, endpoint) in body.endpoints.iter().enumerate() {
-                    self.write_endpoint(&mut out, index, body, endpoint)?;
+                for endpoint in &body.endpoints {
+                    self.write_endpoint(&mut out, body, endpoint)?;
                 }
             });
         });
