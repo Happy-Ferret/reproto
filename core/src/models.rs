@@ -407,6 +407,15 @@ impl RpName {
         }
     }
 
+    /// Build a new name out if the given paths.
+    pub fn with_parts(self, parts: Vec<String>) -> RpName {
+        RpName {
+            prefix: self.prefix,
+            package: self.package,
+            parts: parts,
+        }
+    }
+
     pub fn is_same(&self, other: &RpName) -> bool {
         self.package == other.package && self.parts == other.parts
     }
@@ -613,6 +622,27 @@ impl RpRegistered {
                 inner_fn(parts)
             }
         }
+    }
+
+    /// Get stringy kind of the registered type, if applicable.
+    ///
+    /// This returns the base kind as the first member of the tuple.
+    /// Then the registered type as the second (if applicable).
+    pub fn kind(&self) -> (&str, Option<&RpRegistered>) {
+        use self::RpRegistered::*;
+
+        let result = match *self {
+            Type(_) => "type",
+            Interface(_) => "interface",
+            Enum(_) => "enum",
+            Tuple(_) => "tuple",
+            Service(_) => "service",
+            SubType(_, _) => return ("enum", Some(self)),
+            EnumVariant(_, _) => return ("interface", Some(self)),
+        };
+
+        // simple case
+        (result, None)
     }
 }
 

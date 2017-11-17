@@ -2,7 +2,14 @@
 [default]
 background_color = "#ffffff"
 font_family = "Calibri, Candara, Segoe, Segoe UI, Optima, Arial, sans-serif"
-font_size = "14px"
+font_size = "16px"
+name_part_color = "#9c9c9c"
+primitive_color = "#e6af69"
+keyword_color = "#4b8c4b"
+description_h1_size = "20px"
+description_h2_size = "18px"
+description_h3_size = "16px"
+description_h4_size = "16px"
 
 [light]
 

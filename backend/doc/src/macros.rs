@@ -36,44 +36,78 @@ impl FormatAttribute for String {
 }
 
 #[macro_export]
+macro_rules! define_processor {
+    ($name:ident, $body:ty, $slf:ident $process:block) => (
+        define_processor!($name, $body, $slf $process { None });
+    );
+
+    ($name:ident, $body:ty, $slf:ident $process:block $package:block) => (
+        pub struct $name<'env> {
+            pub out: ::std::cell::RefCell<DocBuilder<'env>>,
+            pub env: &'env Environment,
+            pub root: &'env str,
+            pub body: &'env $body,
+        }
+
+        impl<'env> Processor<'env> for $name<'env> {
+            fn env(&self) -> &'env Environment {
+                self.env
+            }
+
+            fn out(&self) -> ::std::cell::RefMut<DocBuilder<'env>> {
+                self.out.borrow_mut()
+            }
+
+            fn root(&self) -> &'env str {
+                self.root
+            }
+
+            fn current_package(&self) -> Option<&'env ::core::RpPackage> $package
+
+            fn process($slf) -> Result<()> $process
+        }
+    );
+}
+
+#[macro_export]
 macro_rules! html {
-    (@open $out:ident, $element:ident {$($key:ident => $value:expr),*}) => {{
-        write!($out, "<{}", stringify!($element))?;
+    (@open $slf:ident, $element:ident {$($key:ident => $value:expr),*}) => {{
+        write!($slf.out(), "<{}", stringify!($element))?;
         $(
-            write!($out, " {}=\"", stringify!($key))?;
-            $out.write_str(&$value.format_attribute())?;
-            write!($out, "\"")?;
+            write!($slf.out(), " {}=\"", stringify!($key))?;
+            $slf.out().write_str(&$value.format_attribute())?;
+            write!($slf.out(), "\"")?;
         )*
-        write!($out, ">")?;
+        write!($slf.out(), ">")?;
     }};
 
-    (@close $out:ident, $element:ident) => {{
-        write!($out, "</{}>", stringify!($element))?;
+    (@close $slf:ident, $element:ident) => {{
+        write!($slf.out(), "</{}>", stringify!($element))?;
     }};
 
-    ($out:ident, $element:ident {$($key:ident => $value:expr),*} => $body:block) => {{
-        html!(@open $out, $element {$($key=> $value),*});
-        $out.new_line()?;
-        $out.indent();
+    ($slf:ident, $element:ident {$($key:ident => $value:expr),*} => $body:block) => {{
+        html!(@open $slf, $element {$($key=> $value),*});
+        $slf.out().new_line()?;
+        $slf.out().indent();
         $body;
-        $out.new_line_unless_empty()?;
-        $out.unindent();
-        html!(@close $out, $element);
-        $out.new_line()?;
+        $slf.out().new_line_unless_empty()?;
+        $slf.out().unindent();
+        html!(@close $slf, $element);
+        $slf.out().new_line()?;
     }};
 
-    ($out:ident, $element:ident {$($key:ident => $value:expr),*} ~ $body:expr) => {{
-        html!(@open $out, $element {$($key=> $value),*});
-        write!($out, "{}", $body)?;
-        html!(@close $out, $element);
-        $out.new_line()?;
+    ($slf:ident, $element:ident {$($key:ident => $value:expr),*} ~ $body:expr) => {{
+        html!(@open $slf, $element {$($key=> $value),*});
+        write!($slf.out(), "{}", $body)?;
+        html!(@close $slf, $element);
+        $slf.out().new_line()?;
     }};
 
-    ($out:ident, $element:ident {$($key:ident => $value:expr),*}) => {
-        html!($element {$($key=> $value),*}, $out => {})
+    ($slf:ident, $element:ident {$($key:ident => $value:expr),*}) => {
+        html!($element {$($key=> $value),*}, $slf => {})
     };
 
-    ($out:ident, $element:ident $body:expr) => {
+    ($slf:ident, $element:ident $body:expr) => {
         html!($element {} $body)
     };
 }

@@ -13,8 +13,15 @@ mod doc_builder;
 mod doc_compiler;
 mod doc_listeners;
 mod doc_options;
-mod doc_writer;
 mod escape;
+mod processor;
+mod service_processor;
+mod tuple_processor;
+mod type_processor;
+mod enum_processor;
+mod interface_processor;
+mod index_processor;
+mod package_processor;
 
 pub const NORMALIZE_CSS_NAME: &str = "normalize.css";
 pub const DOC_CSS_NAME: &str = "doc.css";

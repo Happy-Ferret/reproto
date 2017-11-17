@@ -4,12 +4,22 @@ use super::{DOC_CSS_NAME, NORMALIZE_CSS_NAME};
 use backend::errors::*;
 use core::{Loc, RpDecl, RpVersionedPackage};
 use doc_backend::DocBackend;
-use doc_builder::DefaultDocBuilder;
-use std::collections::HashMap;
+use doc_builder::DocBuilder;
+use enum_processor::EnumProcessor;
+use genco::IoFmt;
+use index_processor::{Data as IndexData, IndexProcessor};
+use interface_processor::InterfaceProcessor;
+use package_processor::{Data as PackageData, PackageProcessor};
+use processor::Processor;
+use service_processor::ServiceProcessor;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use tuple_processor::TupleProcessor;
+use type_processor::TypeProcessor;
 
 const NORMALIZE_CSS: &[u8] = include_bytes!("static/normalize.css");
 
@@ -32,10 +42,10 @@ impl<'a> DocCompiler<'a> {
         use self::RpDecl::*;
 
         // index by package
-        let mut by_package: HashMap<&RpVersionedPackage, Vec<&Loc<RpDecl>>> = HashMap::new();
+        let mut by_package: BTreeMap<&RpVersionedPackage, Vec<&Loc<RpDecl>>> = BTreeMap::new();
 
-        self.backend.env.for_each_toplevel_decl(|decl| {
-            let package = &decl.name().package;
+        self.backend.env.for_each_decl(|decl| {
+            let package = decl.name().package.clone().into_package(|v| v.to_string());
 
             by_package
                 .entry(&decl.name().package)
@@ -46,9 +56,9 @@ impl<'a> DocCompiler<'a> {
             let mut root = Vec::new();
             let mut path = self.out_path.to_owned();
 
-            for part in package.clone().into_package(|v| v.to_string()).parts {
+            for part in package.parts {
                 root.push("..");
-                path = path.join(part);
+                path = path.join(part.as_str());
 
                 if !path.is_dir() {
                     debug!("+dir: {}", path.display());
@@ -63,25 +73,62 @@ impl<'a> DocCompiler<'a> {
 
             let mut buffer = String::new();
 
-            self.backend.write_doc(
-                &mut DefaultDocBuilder::new(&mut buffer),
-                root.as_str(),
-                |out| match *decl.value() {
-                    Interface(ref b) => self.backend.process_interface(out, b),
-                    Type(ref b) => self.backend.process_type(out, b),
-                    Tuple(ref b) => self.backend.process_tuple(out, b),
-                    Enum(ref b) => self.backend.process_enum(out, b),
-                    Service(ref b) => self.backend.process_service(out, b),
-                },
-            )?;
+            match *decl.value() {
+                Interface(ref body) => {
+                    InterfaceProcessor {
+                        out: RefCell::new(DocBuilder::new(&mut buffer)),
+                        env: &self.backend.env,
+                        root: &root,
+                        body: body,
+                    }.process()?;
+                }
+                Type(ref body) => {
+                    TypeProcessor {
+                        out: RefCell::new(DocBuilder::new(&mut buffer)),
+                        env: &self.backend.env,
+                        root: &root,
+                        body: body,
+                    }.process()?;
+                }
+                Tuple(ref body) => {
+                    TupleProcessor {
+                        out: RefCell::new(DocBuilder::new(&mut buffer)),
+                        env: &self.backend.env,
+                        root: &root,
+                        body: body,
+                    }.process()?;
+                }
+                Enum(ref body) => {
+                    EnumProcessor {
+                        out: RefCell::new(DocBuilder::new(&mut buffer)),
+                        env: &self.backend.env,
+                        root: &root,
+                        body: body,
+                    }.process()?;
+                }
+                Service(ref body) => {
+                    ServiceProcessor {
+                        out: RefCell::new(DocBuilder::new(&mut buffer)),
+                        env: &self.backend.env,
+                        root: &root,
+                        body: body,
+                    }.process()?;
+                }
+            }
 
-            let out = path.join(format!("{}.html", name));
+            let out = path.join(format!("{}.{}.html", decl.kind(), name));
             let mut f = File::create(&out)?;
             f.write_all(buffer.as_bytes())?;
             debug!("+file: {}", out.display());
 
             Ok(())
         })?;
+
+        self.write_index(&by_package)?;
+
+        for (package, decls) in by_package.iter() {
+            self.write_package(*package, decls)?;
+        }
 
         if !self.skip_static {
             self.write_stylesheets()?;
@@ -114,6 +161,55 @@ impl<'a> DocCompiler<'a> {
             return Err(format!("no such theme: {}", &self.backend.theme).into());
         }
 
+        Ok(())
+    }
+
+    /// Write the package index file index file.
+    fn write_package(&self, package: &RpVersionedPackage, decls: &[&Loc<RpDecl>]) -> Result<()> {
+        let mut path = self.out_path.to_owned();
+
+        let mut root = Vec::new();
+
+        for part in package.into_package(|v| v.to_string()).parts {
+            root.push("..");
+            path = path.join(part);
+        }
+
+        let index_html = path.join("index.html");
+        let mut f = File::create(&index_html)?;
+
+        PackageProcessor {
+            out: RefCell::new(DocBuilder::new(&mut IoFmt(&mut f))),
+            env: &self.backend.env,
+            root: &root.join("/"),
+            body: &PackageData {
+                package: package,
+                decls: decls,
+            },
+        }.process()?;
+
+        debug!("+file: {}", index_html.display());
+        Ok(())
+    }
+
+    /// Write the root index file.
+    fn write_index(
+        &self,
+        by_package: &BTreeMap<&RpVersionedPackage, Vec<&Loc<RpDecl>>>,
+    ) -> Result<()> {
+        let index_html = self.out_path.join("index.html");
+        let mut f = File::create(&index_html)?;
+
+        let packages = by_package.keys().map(|p| *p).collect();
+
+        IndexProcessor {
+            out: RefCell::new(DocBuilder::new(&mut IoFmt(&mut f))),
+            env: &self.backend.env,
+            root: &".",
+            body: &IndexData { packages: packages },
+        }.process()?;
+
+        debug!("+file: {}", index_html.display());
         Ok(())
     }
 }
