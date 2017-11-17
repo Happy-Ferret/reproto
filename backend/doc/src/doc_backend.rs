@@ -6,8 +6,7 @@ use backend::errors::*;
 use core::{ForEachLoc, Loc, RpEndpoint, RpEnumBody, RpField, RpInterfaceBody, RpName, RpPackage,
            RpServiceBody, RpTupleBody, RpType, RpTypeBody, RpVariant, RpVersionedPackage, Version,
            WithPos};
-use doc_builder::{DefaultDocBuilder, DocBuilder};
-use doc_collector::{DocCollector, DocDecl};
+use doc_builder::DocBuilder;
 use doc_listeners::DocListeners;
 use doc_options::DocOptions;
 use escape::Escape;
@@ -63,12 +62,11 @@ impl DocBackend {
         let fragment = registered.local_name(name, |p| p.join("_"), |c| c.join("_"));
 
         if let Some(_) = name.prefix {
-            let package = self.package(&name.package);
-            let package = self.package_file(&package);
-            return Ok(format!("{}.html#{}", package, fragment));
+            let path = "..";
+            return Ok(format!("{}/{}.html", path, name.parts.join(".")));
         }
 
-        return Ok(format!("#{}", fragment));
+        Ok(format!("{}.html", name.parts.join(".")))
     }
 
     fn markdown(input: &str) -> String {
@@ -76,10 +74,6 @@ impl DocBackend {
         let mut s = String::new();
         markdown::html::push_html(&mut s, p);
         s
-    }
-
-    pub fn package_file(&self, package: &RpPackage) -> String {
-        package.parts.join("_")
     }
 
     fn write_markdown(&self, out: &mut DocBuilder, comment: &[String]) -> Result<()> {
@@ -249,16 +243,16 @@ impl DocBackend {
         Ok(())
     }
 
-    fn section_title(&self, out: &mut DocBuilder, ty: &str, name: &str, id: &str) -> Result<()> {
+    fn section_title(&self, out: &mut DocBuilder, ty: &str, name: &str) -> Result<()> {
         html!(out, h1 {class => "section-title"} => {
-            html!(out, a {class => "link", href => format!("#{}", id)} ~ Escape(name));
             html!(out, span {class => "type"} ~ ty);
+            html!(out, span {class => "name"} ~ Escape(name));
         });
 
         Ok(())
     }
 
-    pub fn write_doc<Body>(&self, out: &mut DocBuilder, body: Body) -> Result<()>
+    pub fn write_doc<Body>(&self, out: &mut DocBuilder, root: &str, body: Body) -> Result<()>
     where
         Body: FnOnce(&mut DocBuilder) -> Result<()>,
     {
@@ -274,12 +268,14 @@ impl DocBackend {
                 out.new_line()?;
 
                 html!(@open out, link {
-                    rel => "stylesheet", type => "text/css", href => NORMALIZE_CSS_NAME
+                    rel => "stylesheet", type => "text/css",
+                    href => format!("{}/{}", root, NORMALIZE_CSS_NAME)
                 });
                 out.new_line()?;
 
                 html!(@open out, link {
-                    rel => "stylesheet", type => "text/css", href => DOC_CSS_NAME
+                    rel => "stylesheet", type => "text/css",
+                    href => format!("{}/{}", root, DOC_CSS_NAME)
                 });
             });
 
@@ -389,115 +385,22 @@ impl DocBackend {
         Ok(())
     }
 
-    /// Write a packages index.
-    ///
-    /// * `current` if some value indicates which the current package is.
-    pub fn write_packages(
-        &self,
-        out: &mut DocBuilder,
-        packages: &[RpVersionedPackage],
-        current: Option<&RpVersionedPackage>,
-    ) -> Result<()> {
-        html!(out, section {class => "section-content section-packages"} => {
-            html!(out, h1 {class => "section-title"} ~ "Packages");
-
-            html!(out, div {class => "section-body"} => {
-                html!(out, ul {class => "packages-list"} => {
-                    for package in packages {
-                        let name = format!("{}", package);
-
-                        if let Some(current) = current {
-                            if package == current {
-                                html!(out, li {} ~ format!("<b>{}</b>", Escape(name.as_ref())));
-                                continue;
-                            }
-                        }
-
-                        let package = self.package(package);
-                        let url = format!("{}.{}", self.package_file(&package), EXT);
-
-                        html!(out, li {} => {
-                            html!(out, a {href => url} ~ Escape(name.as_ref()));
-                        });
-                    }
-                });
-            });
-        });
-
-        Ok(())
-    }
-
-    pub fn write_service_overview(
-        &self,
-        out: &mut DocBuilder,
-        service_bodies: Vec<&RpServiceBody>,
-    ) -> Result<()> {
-        if service_bodies.is_empty() {
-            return Ok(());
-        }
-
-        html!(out, section {class => "section-content section-service-overview"} => {
-            html!(out, h1 {class => "section-title"} ~ "Services");
-
-            html!(out, div {class => "section-body"} => {
-                for body in service_bodies {
-                    html!(out, h2 {} ~ &body.name);
-
-                    self.write_description(out, body.comment.iter().take(1))?;
-
-                    for endpoint in body.endpoints.values() {
-                        self.write_endpoint_short(out, &body, endpoint)?;
-                    }
-                }
-            })
-        });
-
-        Ok(())
-    }
-
-    pub fn write_types_overview(&self, out: &mut DocBuilder, decls: Vec<DocDecl>) -> Result<()> {
-        if decls.is_empty() {
-            return Ok(());
-        }
-
-        html!(out, section {class => "section-content section-types-overview"} => {
-            html!(out, h1 {class => "section-title"} ~ "Types");
-
-            html!(out, div {class => "section-body"} => {
-                for decl in decls {
-                    let href = format!("#{}", decl.local_name());
-
-                    html!(out, h2 {} => {
-                        html!(out, a {href => href} ~ decl.local_name());
-                    });
-
-                    self.write_description(out, decl.comment().iter().take(1))?;
-                }
-            })
-        });
-
-        Ok(())
-    }
-
     pub fn process_service<'p>(
         &self,
-        out: &mut DocCollector<'p>,
+        out: &'p mut DocBuilder,
         body: &'p RpServiceBody,
     ) -> Result<()> {
-        let mut new_service = out.new_service(body);
-        let mut out = DefaultDocBuilder::new(&mut new_service);
-
         let title_text = body.name.join("::");
         let id = body.name.join("_");
 
         html!(out, section {id => &id, class => "section-content section-service"} => {
-            self.section_title(&mut out, "service", &title_text, &id)?;
+            self.section_title(out, "service", &title_text)?;
 
             html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
+                self.write_description(out, &body.comment)?;
 
                 for endpoint in body.endpoints.values() {
-                    self.write_endpoint(&mut out, body, endpoint)?;
+                    self.write_endpoint(out, body, endpoint)?;
                 }
             });
         });
@@ -505,19 +408,16 @@ impl DocBackend {
         Ok(())
     }
 
-    pub fn process_enum<'p>(&self, out: &mut DocCollector<'p>, body: &'p RpEnumBody) -> Result<()> {
-        let mut new_enum = out.new_type(DocDecl::Enum(body));
-        let mut out = DefaultDocBuilder::new(&mut new_enum);
-
+    pub fn process_enum<'p>(&self, out: &'p mut DocBuilder, body: &'p RpEnumBody) -> Result<()> {
         let title_text = body.name.join("::");
         let id = body.name.join("_");
 
         html!(out, section {id => &id, class => "section-content section-enum"} => {
-            self.section_title(&mut out, "enum", &title_text, &id)?;
+            self.section_title(out, "enum", &title_text)?;
 
             html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
-                self.write_variants(&mut out, body.variants.iter())?;
+                self.write_description(out, &body.comment)?;
+                self.write_variants(out, body.variants.iter())?;
             });
         });
 
@@ -526,20 +426,17 @@ impl DocBackend {
 
     pub fn process_interface<'p>(
         &self,
-        out: &mut DocCollector<'p>,
+        out: &'p mut DocBuilder,
         body: &'p RpInterfaceBody,
     ) -> Result<()> {
-        let mut new_interface = out.new_type(DocDecl::Interface(body));
-        let mut out = DefaultDocBuilder::new(&mut new_interface);
-
         let title_text = body.name.join("::");
         let id = body.name.join("_");
 
         html!(out, section {id => &id, class => "section-content section-interface"} => {
-            self.section_title(&mut out, "interface", &title_text, &id)?;
+            self.section_title(out, "interface", &title_text)?;
 
             html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
+                self.write_description(out, &body.comment)?;
 
                 if !body.sub_types.is_empty() {
                     html!(out, div {class => "sub-types"} => {
@@ -551,10 +448,10 @@ impl DocBackend {
                                       sub_type.local_name);
                             });
 
-                            self.write_description(&mut out, &body.comment)?;
+                            self.write_description(out, &body.comment)?;
 
                             let fields = body.fields.iter().chain(sub_type.fields.iter());
-                            self.write_fields(&mut out, fields)?;
+                            self.write_fields(out, fields)?;
                         }
                     });
                 }
@@ -564,42 +461,32 @@ impl DocBackend {
         Ok(())
     }
 
-    pub fn process_type<'p>(&self, out: &mut DocCollector<'p>, body: &'p RpTypeBody) -> Result<()> {
-        let mut new_type = out.new_type(DocDecl::Type(body));
-        let mut out = DefaultDocBuilder::new(&mut new_type);
-
+    pub fn process_type<'p>(&self, out: &'p mut DocBuilder, body: &'p RpTypeBody) -> Result<()> {
         let title_text = body.name.join("::");
         let id = body.name.join("_");
 
         html!(out, section {id => &id, class => "section-content section-type"} => {
-            self.section_title(&mut out, "type", &title_text, &id)?;
+            self.section_title(out, "type", &title_text)?;
 
             html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
-                self.write_fields(&mut out, body.fields.iter())?;
+                self.write_description(out, &body.comment)?;
+                self.write_fields(out, body.fields.iter())?;
             });
         });
 
         Ok(())
     }
 
-    pub fn process_tuple<'p>(
-        &self,
-        out: &mut DocCollector<'p>,
-        body: &'p RpTupleBody,
-    ) -> Result<()> {
-        let mut new_tuple = out.new_type(DocDecl::Tuple(body));
-        let mut out = DefaultDocBuilder::new(&mut new_tuple);
-
+    pub fn process_tuple<'p>(&self, out: &'p mut DocBuilder, body: &'p RpTupleBody) -> Result<()> {
         let id = body.name.join("_");
         let title_text = body.name.join("::");
 
         html!(out, section {id => &id, class => "section-content section-tuple"} => {
-            self.section_title(&mut out, "tuple", &title_text, &id)?;
+            self.section_title(out, "tuple", &title_text)?;
 
             html!(out, div {class => "section-body"} => {
-                self.write_description(&mut out, &body.comment)?;
-                self.write_fields(&mut out, body.fields.iter())?;
+                self.write_description(out, &body.comment)?;
+                self.write_fields(out, body.fields.iter())?;
             });
         });
 

@@ -1,17 +1,15 @@
 //! Compiler for generating documentation.
 
-use super::{DOC_CSS_NAME, EXT, INDEX, NORMALIZE_CSS_NAME};
-use backend::{Environment, PackageProcessor, PackageUtils};
+use super::{DOC_CSS_NAME, NORMALIZE_CSS_NAME};
 use backend::errors::*;
-use core::{Loc, RpEnumBody, RpInterfaceBody, RpName, RpPackage, RpServiceBody, RpTupleBody,
-           RpTypeBody, RpVersionedPackage};
+use core::{Loc, RpDecl, RpVersionedPackage};
 use doc_backend::DocBackend;
 use doc_builder::DefaultDocBuilder;
-use doc_collector::DocCollector;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 const NORMALIZE_CSS: &[u8] = include_bytes!("static/normalize.css");
 
@@ -31,16 +29,64 @@ impl<'a> DocCompiler<'a> {
     }
 
     pub fn compile(&self) -> Result<()> {
-        let mut files = self.populate_files()?;
+        use self::RpDecl::*;
+
+        // index by package
+        let mut by_package: HashMap<&RpVersionedPackage, Vec<&Loc<RpDecl>>> = HashMap::new();
+
+        self.backend.env.for_each_toplevel_decl(|decl| {
+            let package = &decl.name().package;
+
+            by_package
+                .entry(&decl.name().package)
+                .or_insert_with(Vec::new)
+                .push(&decl);
+
+            // maintain to know where to import static resources from.
+            let mut root = Vec::new();
+            let mut path = self.out_path.to_owned();
+
+            for part in package.clone().into_package(|v| v.to_string()).parts {
+                root.push("..");
+                path = path.join(part);
+
+                if !path.is_dir() {
+                    debug!("+dir: {}", path.display());
+                    fs::create_dir_all(&path)?;
+                }
+            }
+
+            let name = decl.name().parts.join(".");
+
+            // complete path to root and static resources
+            let root = root.join("/");
+
+            let mut buffer = String::new();
+
+            self.backend.write_doc(
+                &mut DefaultDocBuilder::new(&mut buffer),
+                root.as_str(),
+                |out| match *decl.value() {
+                    Interface(ref b) => self.backend.process_interface(out, b),
+                    Type(ref b) => self.backend.process_type(out, b),
+                    Tuple(ref b) => self.backend.process_tuple(out, b),
+                    Enum(ref b) => self.backend.process_enum(out, b),
+                    Service(ref b) => self.backend.process_service(out, b),
+                },
+            )?;
+
+            let out = path.join(format!("{}.html", name));
+            let mut f = File::create(&out)?;
+            f.write_all(buffer.as_bytes())?;
+            debug!("+file: {}", out.display());
+
+            Ok(())
+        })?;
 
         if !self.skip_static {
             self.write_stylesheets()?;
         }
 
-        let packages: Vec<_> = files.keys().map(|p| (*p).clone()).collect();
-        self.write_index(&packages)?;
-        self.write_overviews(&packages, &mut files)?;
-        self.write_files(files)?;
         Ok(())
     }
 
@@ -69,123 +115,5 @@ impl<'a> DocCompiler<'a> {
         }
 
         Ok(())
-    }
-
-    fn write_index(&self, packages: &[RpVersionedPackage]) -> Result<()> {
-        let mut buffer = String::new();
-
-        self.backend.write_doc(
-            &mut DefaultDocBuilder::new(&mut buffer),
-            |out| {
-                self.backend.write_packages(out, packages, None)?;
-                Ok(())
-            },
-        )?;
-
-        let mut path = self.out_path.join(INDEX);
-        path.set_extension(EXT);
-
-        if let Some(parent) = path.parent() {
-            if !parent.is_dir() {
-                fs::create_dir_all(parent)?;
-            }
-        }
-
-        debug!("+index: {}", path.display());
-
-        let mut f = fs::File::create(path)?;
-        f.write_all(&buffer.into_bytes())?;
-
-        Ok(())
-    }
-
-    fn write_overviews(
-        &self,
-        packages: &[RpVersionedPackage],
-        files: &mut BTreeMap<RpVersionedPackage, DocCollector>,
-    ) -> Result<()> {
-        for (package, collector) in files.iter_mut() {
-            collector.set_package_title(format!("{}", package));
-
-            {
-                let mut new_package = collector.new_package();
-                let mut out = DefaultDocBuilder::new(&mut new_package);
-                self.backend.write_packages(
-                    &mut out,
-                    packages,
-                    Some(package),
-                )?;
-            }
-
-            {
-                let service_bodies = collector.service_bodies.clone();
-                let mut new_service_overview = collector.new_service_overview();
-                let mut out = DefaultDocBuilder::new(&mut new_service_overview);
-                self.backend.write_service_overview(
-                    &mut out,
-                    service_bodies,
-                )?;
-            }
-
-            {
-                let decl_bodies = collector.decl_bodies.clone();
-                let mut new_type_overview = collector.new_types_overview();
-                let mut out = DefaultDocBuilder::new(&mut new_type_overview);
-                self.backend.write_types_overview(&mut out, decl_bodies)?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl<'p> PackageProcessor<'p> for DocCompiler<'p> {
-    type Out = DocCollector<'p>;
-
-    fn ext(&self) -> &str {
-        EXT
-    }
-
-    fn env(&self) -> &'p Environment {
-        &self.backend.env
-    }
-
-    fn out_path(&self) -> &Path {
-        &self.out_path
-    }
-
-    fn processed_package(&self, package: &RpVersionedPackage) -> RpPackage {
-        self.backend.package(package)
-    }
-
-    fn default_process(&self, _: &mut Self::Out, name: &RpName) -> Result<()> {
-        warn!("Cannot handle: `{:?}", name);
-        Ok(())
-    }
-
-    fn resolve_full_path(&self, package: &RpPackage) -> Result<PathBuf> {
-        let mut full_path = self.out_path().join(self.backend.package_file(package));
-        full_path.set_extension(self.ext());
-        Ok(full_path)
-    }
-
-    fn process_service(&self, out: &mut Self::Out, body: &'p Loc<RpServiceBody>) -> Result<()> {
-        self.backend.process_service(out, body)
-    }
-
-    fn process_enum(&self, out: &mut Self::Out, body: &'p Loc<RpEnumBody>) -> Result<()> {
-        self.backend.process_enum(out, body)
-    }
-
-    fn process_interface(&self, out: &mut Self::Out, body: &'p Loc<RpInterfaceBody>) -> Result<()> {
-        self.backend.process_interface(out, body)
-    }
-
-    fn process_type(&self, out: &mut Self::Out, body: &'p Loc<RpTypeBody>) -> Result<()> {
-        self.backend.process_type(out, body)
-    }
-
-    fn process_tuple(&self, out: &mut Self::Out, body: &'p Loc<RpTupleBody>) -> Result<()> {
-        self.backend.process_tuple(out, body)
     }
 }

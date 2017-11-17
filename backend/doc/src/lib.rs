@@ -10,7 +10,6 @@ extern crate pulldown_cmark;
 mod macros;
 mod doc_backend;
 mod doc_builder;
-mod doc_collector;
 mod doc_compiler;
 mod doc_listeners;
 mod doc_options;

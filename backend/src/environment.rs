@@ -123,12 +123,12 @@ impl Environment {
     }
 
     /// Iterate over top level declarations of all registered objects.
-    pub fn for_each_toplevel_decl<O>(&self, mut op: O) -> Result<()>
+    pub fn for_each_toplevel_decl<'a, O>(&'a self, mut op: O) -> Result<()>
     where
-        O: FnMut(Rc<Loc<RpDecl>>) -> Result<()>,
+        O: FnMut(&'a Rc<Loc<RpDecl>>) -> Result<()>,
     {
         for decl in self.decls.values() {
-            op(decl.clone()).with_pos(decl.pos())?;
+            op(decl).with_pos(decl.pos())?;
         }
 
         Ok(())

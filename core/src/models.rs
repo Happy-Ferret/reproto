@@ -24,35 +24,6 @@ pub enum RpDecl {
     Service(Rc<Loc<RpServiceBody>>),
 }
 
-#[derive(Debug, Clone)]
-pub enum RpRegistered {
-    Type(Rc<Loc<RpTypeBody>>),
-    Tuple(Rc<Loc<RpTupleBody>>),
-    Interface(Rc<Loc<RpInterfaceBody>>),
-    SubType(Rc<Loc<RpInterfaceBody>>, Rc<Loc<RpSubType>>),
-    Enum(Rc<Loc<RpEnumBody>>),
-    EnumVariant(Rc<Loc<RpEnumBody>>, Rc<Loc<RpVariant>>),
-    Service(Rc<Loc<RpServiceBody>>),
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RpCode {
-    pub context: String,
-    pub lines: Vec<String>,
-}
-
-pub struct DeclIter<'a> {
-    iter: slice::Iter<'a, Rc<Loc<RpDecl>>>,
-}
-
-impl<'a> Iterator for DeclIter<'a> {
-    type Item = &'a Rc<Loc<RpDecl>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
 impl RpDecl {
     pub fn decls(&self) -> DeclIter {
         use self::RpDecl::*;
@@ -145,6 +116,48 @@ impl RpDecl {
         }
 
         out
+    }
+
+    /// Get stringy kind of the declaration.
+    pub fn kind(&self) -> &str {
+        use self::RpDecl::*;
+
+        match *self {
+            Type(_) => "type",
+            Interface(_) => "interface",
+            Enum(_) => "enum",
+            Tuple(_) => "tuple",
+            Service(_) => "service",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum RpRegistered {
+    Type(Rc<Loc<RpTypeBody>>),
+    Tuple(Rc<Loc<RpTupleBody>>),
+    Interface(Rc<Loc<RpInterfaceBody>>),
+    SubType(Rc<Loc<RpInterfaceBody>>, Rc<Loc<RpSubType>>),
+    Enum(Rc<Loc<RpEnumBody>>),
+    EnumVariant(Rc<Loc<RpEnumBody>>, Rc<Loc<RpVariant>>),
+    Service(Rc<Loc<RpServiceBody>>),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RpCode {
+    pub context: String,
+    pub lines: Vec<String>,
+}
+
+pub struct DeclIter<'a> {
+    iter: slice::Iter<'a, Rc<Loc<RpDecl>>>,
+}
+
+impl<'a> Iterator for DeclIter<'a> {
+    type Item = &'a Rc<Loc<RpDecl>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
     }
 }
 
