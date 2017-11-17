@@ -50,5 +50,5 @@ service Blob {
   get_posts() -> [PostEntry];
 
   /// Get the post with the given `id`.
-  get_post(id: string) -> Post;
+  get_post(string) -> Post;
 }

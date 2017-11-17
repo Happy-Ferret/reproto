@@ -8,7 +8,7 @@ service Petstore {
 }
 
 type Pet {
-  id: unsigned/64;
+  id: u64;
   name: string;
   tag?: string;
 }
