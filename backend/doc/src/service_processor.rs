@@ -8,23 +8,27 @@ use escape::Escape;
 use macros::FormatAttribute;
 use processor::Processor;
 
-define_processor!(ServiceProcessor, RpServiceBody, self {
-    self.write_doc(|| {
-        let id = self.body.name.join("_");
+define_processor!(ServiceProcessor, RpServiceBody, self,
+    process => {
+        self.write_doc(|| {
+            let id = self.body.name.join("_");
 
-        html!(self, section {id => &id, class => "section-content section-service"} => {
-            self.section_title("service", &self.body.name)?;
+            html!(self, section {id => &id, class => "section-content section-service"} => {
+                self.section_title("service", &self.body.name)?;
 
-            self.description(&self.body.comment)?;
+                self.doc(&self.body.comment)?;
 
-            for endpoint in self.body.endpoints.values() {
-                self.write_endpoint(endpoint)?;
-            }
-        });
+                for endpoint in self.body.endpoints.values() {
+                    self.write_endpoint(endpoint)?;
+                }
+            });
 
-        Ok(())
-    })
-});
+            Ok(())
+        })
+    };
+
+    current_package => &self.body.name.package;
+);
 
 impl<'p> ServiceProcessor<'p> {
     fn write_endpoint(&self, endpoint: &RpEndpoint) -> Result<()> {
@@ -72,7 +76,7 @@ impl<'p> ServiceProcessor<'p> {
             }
         });
 
-        self.description(&endpoint.comment)?;
+        self.doc(&endpoint.comment)?;
         Ok(())
     }
 }

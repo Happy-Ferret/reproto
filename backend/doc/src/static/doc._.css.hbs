@@ -11,8 +11,23 @@ body {
   font-size: {{font_size}};
 }
 
+table {
+    border-spacing: 0 5px;
+    border-collapse: separate
+}
+
+a {
+    text-decoration: none;
+    color: none;
+}
+
 section {
     margin: 10px;
+}
+
+.section-title {
+    padding-bottom: 5px;
+    border-bottom: 1px dashed {{doc_border_color}};
 }
 
 nav.top {
@@ -20,8 +35,11 @@ nav.top {
     margin: 10px;
 }
 
-div.field {
-    margin-left: 10px;
+.field {
+}
+
+.name-package {
+    color: {{name_package_color}};
 }
 
 .name-part {
@@ -35,6 +53,7 @@ div.field {
 
 /* the last, most significant part of a name */
 .name-local {
+    color: {{name_local_color}};
 }
 
 /* a primitive type */
@@ -50,27 +69,45 @@ div.field {
     color: {{keyword_color}};
 }
 
-.description {
-    margin-left: 10px;
+.doc {
 }
 
-.missing-description {
-    margin-left: 10px;
+.missing-doc {
     font-style: italic;
 }
 
-.description h1 {
-    font-size: {{description_h1_size}};
+.doc h1, .doc h2, .doc h3, .doc h4, .doc h5, .doc h6 {
+    color: {{doc_header_color}};
+    border-bottom: 1px solid {{doc_border_color}};
 }
 
-.description h2 {
-    font-size: {{description_h2_size}};
+.doc h1 {
+    font-size: {{doc_h1_size}};
 }
 
-.description h3 {
-    font-size: {{description_h3_size}};
+.doc h2 {
+    font-size: {{doc_h2_size}};
 }
 
-.description h4 {
-    font-size: {{description_h4_size}};
+.doc h3 {
+    font-size: {{doc_h3_size}};
+}
+
+.doc h4 {
+    font-size: {{doc_h4_size}};
+}
+
+.doc h5 {
+    font-size: {{doc_h4_size}};
+}
+
+.doc h6 {
+    font-size: {{doc_h4_size}};
+}
+
+.package-item {
+}
+
+.package-item-doc {
+    padding-left: 20px;
 }

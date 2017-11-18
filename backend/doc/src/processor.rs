@@ -3,7 +3,7 @@
 use super::{DOC_CSS_NAME, NORMALIZE_CSS_NAME};
 use backend::Environment;
 use backend::errors::*;
-use core::{ForEachLoc, Loc, RpField, RpName, RpPackage, RpType};
+use core::{ForEachLoc, Loc, RpField, RpName, RpType, RpVersionedPackage};
 use doc_builder::DocBuilder;
 use escape::Escape;
 use macros::FormatAttribute;
@@ -22,7 +22,7 @@ pub trait Processor<'env> {
     /// Process the given request.
     fn process(self) -> Result<()>;
 
-    fn current_package(&self) -> Option<&'env RpPackage> {
+    fn current_package(&self) -> Option<&'env RpVersionedPackage> {
         None
     }
 
@@ -43,8 +43,8 @@ pub trait Processor<'env> {
             return Ok(format!(
                 "{}/{}/{}.{}.html{}",
                 self.root(),
-                kind,
                 path,
+                kind,
                 name.parts.join("."),
                 fragment,
             ));
@@ -74,7 +74,7 @@ pub trait Processor<'env> {
         Ok(())
     }
 
-    fn description<'a, I>(&self, comment: I) -> Result<()>
+    fn doc<'a, I>(&self, comment: I) -> Result<()>
     where
         I: IntoIterator<Item = &'a String>,
     {
@@ -83,9 +83,9 @@ pub trait Processor<'env> {
         if it.peek().is_some() {
             let comment = it.map(ToOwned::to_owned).collect::<Vec<_>>();
             let comment = comment.join("\n");
-            html!(self, div { class => "description" } ~ Self::markdown(&comment));
+            html!(self, div { class => "doc" } ~ Self::markdown(&comment));
         } else {
-            html!(self, div { class => "missing-description" } ~ Escape("no documentation :("));
+            html!(self, div { class => "missing-doc" } ~ Escape("no documentation :("));
         }
 
         Ok(())
@@ -112,11 +112,8 @@ pub trait Processor<'env> {
             Signed { ref size } => self.primitive(format!("i{}", size).as_str())?,
             Unsigned { ref size } => self.primitive(format!("u{}", size).as_str())?,
             Name { ref name } => {
-                let url = self.type_url(name)?;
-                let name = name.join("::");
-
                 html!(self, span {class => "type-rp-name"} => {
-                    html!(self, a {href => url} ~ name);
+                    self.full_name_without_package(name)?;
                 });
             }
             Array { ref inner } => {
@@ -169,7 +166,7 @@ pub trait Processor<'env> {
                 }
             });
 
-            self.description(&field.comment)?;
+            self.doc(&field.comment)?;
         });
 
         Ok(())
@@ -223,12 +220,12 @@ pub trait Processor<'env> {
 
             html!(self, body {} => {
                 html!(self, nav {class => "top"} => {
-                    html!(self, a {href => format!("{}/", self.root())} ~ "To Index");
+                    html!(self, a {href => format!("{}/index.html", self.root())} ~ "To Index");
 
                     if let Some(package) = self.current_package() {
-                        let url = package.parts.join("/");
+                        let package_url = self.package_url(package);
                         html!(self, span {} ~ "-");
-                        html!(self, a {href => format!("{}/{}/", self.root(), url)} ~ "To Package");
+                        html!(self, a {href => package_url} ~ format!("To Package: {}", package));
                     }
                 });
 
@@ -237,6 +234,16 @@ pub trait Processor<'env> {
         });
 
         Ok(())
+    }
+
+    fn package_url(&self, package: &RpVersionedPackage) -> String {
+        let url = package
+            .clone()
+            .into_package(ToString::to_string)
+            .parts
+            .join("/");
+
+        format!("{}/{}/index.html", self.root(), url)
     }
 
     fn fragment_filter(url: &str) -> String {
@@ -282,6 +289,10 @@ pub trait Processor<'env> {
 
         let mut parts = Vec::new();
 
+        let package_url = self.package_url(&name.package);
+        html!(self, a {class => "name-package", href => package_url} ~ name.package.to_string());
+        html!(self, span {class => "name-sep"} ~ "::");
+
         for part in it {
             parts.push(part.clone());
             let name = name.clone().with_parts(parts.clone());
@@ -296,8 +307,34 @@ pub trait Processor<'env> {
             html!(self, span {class => "name-sep"} ~ "::");
         }
 
-        html!(self, a {class => "name-local"} ~ local);
+        let url = self.type_url(name)?;
+        html!(self, a {class => "name-local", href => url} ~ local);
+        Ok(())
+    }
 
+    /// Local name fully linked.
+    fn full_name_without_package(&self, name: &RpName) -> Result<()> {
+        let mut it = name.parts.iter();
+        let local = it.next_back().ok_or_else(|| "local part of name required")?;
+
+        let mut parts = Vec::new();
+
+        if let Some(ref prefix) = name.prefix {
+            let package_url = self.package_url(&name.package);
+            html!(self, a {class => "name-package", href => package_url} ~ prefix);
+            html!(self, span {class => "name-sep"} ~ "::");
+        }
+
+        for part in it {
+            parts.push(part.clone());
+            let name = name.clone().with_parts(parts.clone());
+            let url = self.type_url(&name)?;
+            html!(self, a {class => "name-part", href => url} ~ part);
+            html!(self, span {class => "name-sep"} ~ "::");
+        }
+
+        let url = self.type_url(name)?;
+        html!(self, a {class => "name-local", href => url} ~ local);
         Ok(())
     }
 

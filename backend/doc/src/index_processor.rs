@@ -12,23 +12,34 @@ pub struct Data<'a> {
     pub packages: Vec<&'a RpVersionedPackage>,
 }
 
-define_processor!(IndexProcessor, Data<'env>, self {
-    self.write_doc(|| {
-        html!(self, section {class => "section-content"} => {
-            html!(self, h1 {} ~ "index");
+define_processor!(IndexProcessor, Data<'env>, self,
+    process => {
+        self.write_doc(|| {
+            html!(self, section {class => "section-content"} => {
+                html!(self, h1 {class => "section-title"} ~ "Index");
 
-            for package in &self.body.packages {
-                let url = package.into_package(|v| v.to_string()).parts.join("/");
+                html!(self, h2 {class => "kind"} ~ "Packages");
 
-                html!(self, h2 {} => {
-                    html!(self, span {class => "kind"} ~ "package");
-                    html!(self, a {href => url} ~ Escape(package.to_string().as_str()));
+                html!(self, table {} => {
+                    for package in &self.body.packages {
+                        html!(self, tr {} => {
+                            html!(self, td {class => "package-item"} => {
+                                let package_url = self.package_url(package);
+                                html!(self, a {class => "name-package", href => package_url} ~
+                                        Escape(package.to_string().as_str()));
+                            });
+
+                            html!(self, td {class => "package-item-doc"} => {
+                                self.doc(::std::iter::empty())?;
+                            });
+                        });
+                    }
                 });
-            }
-        });
+            });
 
-        Ok(())
-    })
-});
+            Ok(())
+        })
+    };
+);
 
 impl<'env> IndexProcessor<'env> {}

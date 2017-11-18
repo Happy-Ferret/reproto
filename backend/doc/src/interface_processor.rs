@@ -7,32 +7,36 @@ use doc_builder::DocBuilder;
 use macros::FormatAttribute;
 use processor::Processor;
 
-define_processor!(InterfaceProcessor, RpInterfaceBody, self {
-    self.write_doc(|| {
-        let id = self.body.name.join("_");
+define_processor!(InterfaceProcessor, RpInterfaceBody, self,
+    process => {
+        self.write_doc(|| {
+            let id = self.body.name.join("_");
 
-        html!(self, section {id => &id, class => "section-content section-interface"} => {
-            self.section_title("interface", &self.body.name)?;
+            html!(self, section {id => &id, class => "section-content section-interface"} => {
+                self.section_title("interface", &self.body.name)?;
 
-            self.description(&self.body.comment)?;
+                self.doc(&self.body.comment)?;
 
-            for sub_type in self.body.sub_types.values() {
-                let id = sub_type.name.join("_");
+                for sub_type in self.body.sub_types.values() {
+                    let id = sub_type.name.join("_");
 
-                html!(self, h2 {id => id, class => "sub-type-title"} => {
-                    html!(self, span {class => "kind"} ~ "subtype");
-                    self.full_name(&sub_type.name, Some(&self.body.name))?;
-                });
+                    html!(self, h2 {id => id, class => "sub-type-title"} => {
+                        html!(self, span {class => "kind"} ~ "subtype");
+                        self.full_name_without_package(&sub_type.name)?;
+                    });
 
-                self.description(&self.body.comment)?;
+                    self.doc(&self.body.comment)?;
 
-                let fields = self.body.fields.iter().chain(sub_type.fields.iter());
-                self.fields(fields)?;
-            }
-        });
+                    let fields = self.body.fields.iter().chain(sub_type.fields.iter());
+                    self.fields(fields)?;
+                }
+            });
 
-        Ok(())
-    })
-});
+            Ok(())
+        })
+    };
+
+    current_package => &self.body.name.package;
+);
 
 impl<'p> InterfaceProcessor<'p> {}

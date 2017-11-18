@@ -106,43 +106,7 @@ in variour programming languages for safely and convenient interaction.
 
 The goal is to have a compact, intuitive, and productive language for writing specifications.
 
-The following is a simple petstore example using ReProto, you can find more examples under the
-[examples] directory.
-
-```reproto
-/// # ReProto Petstore
-///
-/// A sample API that uses a petstore as an example to demonstrate features in the ReProto
-/// specification
-service Petstore {
-  /// Returns all pets from the system that the user has access to.
-  all_pets() -> stream Pet;
-}
-
-enum Size as string {
-    LARGE;
-    MEDIUM;
-    SMALL;
-}
-
-type Pet {
-  id: u64;
-  name: string;
-  size: Size;
-}
-```
-
-You can compile the above into documentation using the following command:
-
-```bash
-$> reproto doc --out petstore-doc --path examples/src --package petstore
-```
-
-If you miss JSON, you can compile the specification to JSON as well.
-
-```bash
-$> reproto build --lang json --out petstore-json --path examples/petstore --package petstore
-```
+You can find example specifications under the [examples] directory.
 
 [Cargo]: https://github.com/rust-lang/cargo
 [config]: /doc/config.md

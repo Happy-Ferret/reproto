@@ -53,11 +53,11 @@ interface User {
 
 /// The blog service.
 service Blob {
-  /// # Get information about all posts
+  /// Get information about all posts
   ///
   /// Streams all posts until the client disconnects.
   get_posts() -> stream PostEntry as "GetPosts";
 
-  /// # Get the post with the given `id`.
+  /// Get the post with the given `id`.
   get_post(string) -> Post;
 }

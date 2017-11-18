@@ -37,11 +37,7 @@ impl FormatAttribute for String {
 
 #[macro_export]
 macro_rules! define_processor {
-    ($name:ident, $body:ty, $slf:ident $process:block) => (
-        define_processor!($name, $body, $slf $process { None });
-    );
-
-    ($name:ident, $body:ty, $slf:ident $process:block $package:block) => (
+    ($name:ident, $body:ty, $slf:ident, $($tail:tt)*) => (
         pub struct $name<'env> {
             pub out: ::std::cell::RefCell<DocBuilder<'env>>,
             pub env: &'env Environment,
@@ -62,11 +58,29 @@ macro_rules! define_processor {
                 self.root
             }
 
-            fn current_package(&self) -> Option<&'env ::core::RpPackage> $package
-
-            fn process($slf) -> Result<()> $process
+            define_processor!(@tail $slf $($tail)*);
         }
     );
+
+    (@tail $slf:ident process => $body:block; $($tail:tt)*) => (
+        fn process($slf) -> Result<()> $body
+
+        define_processor!(@tail $slf $($tail)*);
+    );
+
+    (@tail $slf:ident current_package => $body:block; $($tail:tt)*) => (
+        fn current_package(&$slf) -> Option<&'env ::core::RpVersionedPackage> $body
+
+        define_processor!(@tail $slf $($tail)*);
+    );
+
+    (@tail $slf:ident current_package => $expr:expr; $($tail:tt)*) => (
+        fn current_package(&$slf) -> Option<&'env ::core::RpVersionedPackage> { Some($expr) }
+
+        define_processor!(@tail $slf $($tail)*);
+    );
+
+    (@tail $slf:ident) => ();
 }
 
 #[macro_export]
