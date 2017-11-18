@@ -174,6 +174,7 @@ impl<'input> IntoModel for File<'input> {
         let options = self.options.into_model(scope)?;
 
         Ok(RpFile {
+            comment: self.comment.into_iter().map(ToOwned::to_owned).collect(),
             options: options,
             decls: self.decls.into_model(scope)?,
         })

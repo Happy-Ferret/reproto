@@ -14,6 +14,20 @@ use std::rc::Rc;
 use std::result;
 use std::slice;
 
+/// Build a declaration body including common fields.
+macro_rules! decl_body {
+    (pub struct $name:ident { $($rest:tt)* }) => {
+        #[derive(Debug, Clone, Serialize)]
+        pub struct $name {
+            pub name: RpName,
+            pub local_name: String,
+            pub comment: Vec<String>,
+            pub decls: Vec<Rc<Loc<RpDecl>>>,
+            $($rest)*
+        }
+    };
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RpDecl {
@@ -175,18 +189,12 @@ impl fmt::Display for RpDecl {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct RpEnumBody {
-    pub name: RpName,
-    pub local_name: String,
-    pub comment: Vec<String>,
-    /// Inner declarations.
-    pub decls: Vec<Rc<Loc<RpDecl>>>,
+decl_body!(pub struct RpEnumBody {
     /// The type of the variant.
     pub variant_type: RpEnumType,
     pub variants: Vec<Rc<Loc<RpVariant>>>,
     pub codes: Vec<Loc<RpCode>>,
-}
+});
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RpVariant {
@@ -300,21 +308,16 @@ impl RpField {
 
 #[derive(Debug)]
 pub struct RpFile {
+    pub comment: Vec<String>,
     pub options: Vec<Loc<RpOptionDecl>>,
     pub decls: Vec<Loc<RpDecl>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct RpInterfaceBody {
-    pub name: RpName,
-    pub local_name: String,
-    pub comment: Vec<String>,
-    /// Inner declarations.
-    pub decls: Vec<Rc<Loc<RpDecl>>>,
+decl_body!(pub struct RpInterfaceBody {
     pub fields: Vec<Loc<RpField>>,
     pub codes: Vec<Loc<RpCode>>,
     pub sub_types: BTreeMap<String, Rc<Loc<RpSubType>>>,
-}
+});
 
 impl RpInterfaceBody {
     pub fn fields<'a>(&'a self) -> Box<Iterator<Item = &Loc<RpField>> + 'a> {
@@ -646,14 +649,9 @@ impl RpRegistered {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct RpServiceBody {
-    pub name: RpName,
-    pub local_name: String,
-    pub comment: Vec<String>,
+decl_body!(pub struct RpServiceBody {
     pub endpoints: LinkedHashMap<String, Loc<RpEndpoint>>,
-    pub decls: Vec<Rc<Loc<RpDecl>>>,
-}
+});
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RpEndpoint {
@@ -745,15 +743,10 @@ impl RpSubType {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct RpTupleBody {
-    pub name: RpName,
-    pub local_name: String,
-    pub comment: Vec<String>,
-    pub decls: Vec<Rc<Loc<RpDecl>>>,
+decl_body!(pub struct RpTupleBody {
     pub fields: Vec<Loc<RpField>>,
     pub codes: Vec<Loc<RpCode>>,
-}
+});
 
 impl RpTupleBody {
     pub fn fields<'a>(&'a self) -> Box<Iterator<Item = &Loc<RpField>> + 'a> {
@@ -761,17 +754,12 @@ impl RpTupleBody {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct RpTypeBody {
-    pub name: RpName,
-    pub local_name: String,
-    pub comment: Vec<String>,
-    pub decls: Vec<Rc<Loc<RpDecl>>>,
+decl_body!(pub struct RpTypeBody {
     pub fields: Vec<Loc<RpField>>,
     pub codes: Vec<Loc<RpCode>>,
     // Set of fields which are reserved for this type.
     pub reserved: HashSet<Loc<String>>,
-}
+});
 
 impl RpTypeBody {
     pub fn verify(&self) -> Result<()> {

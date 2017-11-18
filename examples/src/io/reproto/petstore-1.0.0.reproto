@@ -1,3 +1,5 @@
+//! Package documentation
+
 use io.reproto.common as c;
 
 /// Sample Petstore Service

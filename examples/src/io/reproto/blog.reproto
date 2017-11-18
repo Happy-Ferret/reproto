@@ -1,3 +1,5 @@
+//! Blog-related abstractions.
+
 /// A blog post with comments.
 type Post {
   /// Identifier of the post.
